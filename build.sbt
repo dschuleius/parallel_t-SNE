@@ -7,5 +7,6 @@ lazy val root = (project in file("."))
     name := "parallel_t-SNE",
     libraryDependencies += "org.apache.spark" %% "spark-core" % "3.3.1",
     libraryDependencies += "org.apache.spark" %% "spark-sql" % "3.3.1" ,
-    libraryDependencies += "org.apache.spark" %% "spark-hive" % "3.3.1"
+    libraryDependencies += "org.apache.spark" %% "spark-hive" % "3.3.1",
+    libraryDependencies += "org.scalanlp" %% "breeze" % "2.1.0"
   )

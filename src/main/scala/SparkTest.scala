@@ -1,6 +1,8 @@
 
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
+import breeze.linalg._
+import breeze.numerics._
 import org.apache.spark.sql.SparkSession
 
 object SparkSessionTest extends App{
