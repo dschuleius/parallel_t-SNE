@@ -6,17 +6,6 @@ import org.apache.spark.mllib.rdd.MLPairRDDFunctions.fromPairRDD
 
 case class VectorAndNorm(vector:DenseVector[Double], norm:Double)
 
-/*
-def combinations(occurrences: Any): Seq[Any] = occurrences match {
-  case Seq() => Seq(Nil)
-  case (c, n) :: others =>
-    val tails = combinations(others)
-    tails ::: (for {
-      j <- tails
-      i <- 1 to n
-    } yield (c, i) :: j)
-}
-*/
 
 val x = DenseMatrix.rand[Double](3,5)
 
@@ -35,8 +24,8 @@ val rowVecsWithNorms = rowVecs.zip(rowNorms.valuesIterator).map{
 }
  */
 
-def distance(xs: Array[Double]): Double  = {
-  sqrt((xs zip xs).map { case (x,y) => pow(y - x, 2) }.sum)
+def distance(xs: Array[Double], ys: Array[Double]): Double  = {
+  sqrt((xs zip ys).map { case (x,y) => pow(y - x, 2) }.sum)
 }
 val testseq = 1 to 5
 def combi(s : Seq[Int]) : Seq[(Int, Int)] =
@@ -45,17 +34,20 @@ def combi(s : Seq[Int]) : Seq[(Int, Int)] =
   else
     s.tail.flatMap(x=> Seq(s.head -> x, x -> s.head)) ++ combi(s.tail)
 
-combi(testseq)
 
-/*
-def findNearestPoints(testPoints: Array[Array[Double]], trainPoints: Array[Array[Double]]): Array[Int] = {
+
+
+def findNearestPoints(testPoints: Array[Array[Double]], trainPoints: Array[Array[Double]]): Array[Array[(Int, Double)]] = {
   testPoints.map { testInstance =>
     trainPoints.zipWithIndex.map { case (trainInstance, c) =>
       c -> distance(testInstance, trainInstance)
-    }.minBy(_._2)._1
+    }
   }
 }
 
+findNearestPoints(testPoints = xArray, trainPoints = xArray)
+
+/*
 val neighbors:Seq[Any] = rowVecsWithNorms.zipWithIndex().flatMap {
     case ((u, i), (v, j)) =>
       if(i < j) {
