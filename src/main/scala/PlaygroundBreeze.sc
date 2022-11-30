@@ -18,25 +18,36 @@ def combinations(occurrences: Any): Seq[Any] = occurrences match {
 }
 */
 
+val x = DenseMatrix.rand[Double](3,5)
+
 // take rows of matrix and map to norm, as members of class VectorAndNorm:
-val x = Array(Array(5.0, 4.8, 7.5, 10.0),
+val xArray = Array(Array(5.0, 4.8, 7.5, 10.0),
         Array(3.2, 2.1, 4.3, 2.8),
         Array(2.2, 1.1, 1.3, 2.3))
 println(x)
-/*
+
 val rowVecs = for ( i <- 0 until x.rows) yield x(i, ::)
 rowVecs.getClass
 val rowNorms = x(*, ::).map(rv => norm(rv, 2.0))
+/*
 val rowVecsWithNorms = rowVecs.zip(rowNorms.valuesIterator).map{
   case (rv, norm) => VectorAndNorm(rv.t, norm)
 }
  */
 
-def distance(xs: Array[Array[Double]]): Array[Double]:  = {
+def distance(xs: Array[Double]): Double  = {
   sqrt((xs zip xs).map { case (x,y) => pow(y - x, 2) }.sum)
 }
-distance(x)
+val testseq = 1 to 5
+def combi(s : Seq[Int]) : Seq[(Int, Int)] =
+  if(s.isEmpty)
+    Seq()
+  else
+    s.tail.flatMap(x=> Seq(s.head -> x, x -> s.head)) ++ combi(s.tail)
 
+combi(testseq)
+
+/*
 def findNearestPoints(testPoints: Array[Array[Double]], trainPoints: Array[Array[Double]]): Array[Int] = {
   testPoints.map { testInstance =>
     trainPoints.zipWithIndex.map { case (trainInstance, c) =>
@@ -45,9 +56,6 @@ def findNearestPoints(testPoints: Array[Array[Double]], trainPoints: Array[Array
   }
 }
 
-
-
-/*
 val neighbors:Seq[Any] = rowVecsWithNorms.zipWithIndex().flatMap {
     case ((u, i), (v, j)) =>
       if(i < j) {
@@ -57,6 +65,3 @@ val neighbors:Seq[Any] = rowVecsWithNorms.zipWithIndex().flatMap {
   }
   .topByKey(2)(Ordering.by(e => -e._2))
 */
-
-
-//
