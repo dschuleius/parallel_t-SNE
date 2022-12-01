@@ -47,16 +47,23 @@ def findNearestPoints(testPoints: Array[Array[Double]], trainPoints: Array[Array
 
 findNearestPoints(testPoints = xArray, trainPoints = xArray)
 
+val testdistv1v2 = exp(-1 * scala.math.pow(distance(Array(5.0, 4.8, 7.5, 10.0), Array(3.2, 2.1, 4.3, 2.8)), 2) / scala.math.pow(2 * 1, 2))
+println(testdistv1v2)
+val testdistv1v2step = exp(-1 * scala.math.pow(distance(Array(5.0, 4.8, 7.5, 10.0), Array(3.2, 2.1, 4.3, 2.8)), 2) / (2 * scala.math.pow(1, 2)))
+println(testdistv1v2step)
+
+
 // normalize result by sum of all distances / 2 because each combination is counted twice
 def distanceMatrix(points: Array[Array[Double]], sigma: Double): Array[Array[List[Double]]] = {
-  var totaldist:Double = 0
+  var totaldist = 0.0
   points.zipWithIndex.map { case (vec1, i) => points.zipWithIndex.map { case (vec2, j) => if(i < j) {
-    val dist = exp(-1 * scala.math.pow(distance(vec1, vec2), 2) / scala.math.pow(2 * sigma, 2))
-    totaldist = totaldist + dist
-    List(i, j, dist)
+    val dist = exp(-1 * scala.math.pow(distance(vec1, vec2), 2) / (2 * scala.math.pow(sigma, 2)))
+    totaldist = totaldist + dist }}}
+  points.zipWithIndex.map { case (vec1, i) => points.zipWithIndex.map { case (vec2, j) => if (i < j) {
+    val dist = exp(-1 * scala.math.pow(distance(vec1, vec2), 2) / (2 * scala.math.pow(sigma, 2)))
+    List(i, j, dist/totaldist)
   } else List.empty
-  }.map { case List(a, b, c) => List(a, b, c/totaldist)
-          case _ => List.empty}
+  }
   }
 }
 
