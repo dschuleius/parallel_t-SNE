@@ -47,13 +47,23 @@ def findNearestPoints(testPoints: Array[Array[Double]], trainPoints: Array[Array
 
 findNearestPoints(testPoints = xArray, trainPoints = xArray)
 
-def distanceMatrix(points: Array[Array[Double]]): Array[Array[List[Double]]] =
-  points.zipWithIndex.map { case (vec1, i) => points.zipWithIndex.map { case (vec2, j) =>
-    List(i, j, distance(vec1, vec2))
-    }
+// normalize result by sum of all distances / 2 because each combination is counted twice
+def distanceMatrix(points: Array[Array[Double]], sigma: Double): Array[Array[List[Double]]] = {
+  var totaldist:Double = 0
+  points.zipWithIndex.map { case (vec1, i) => points.zipWithIndex.map { case (vec2, j) => if(i < j) {
+    val dist = exp(-1 * scala.math.pow(distance(vec1, vec2), 2) / scala.math.pow(2 * sigma, 2))
+    totaldist = totaldist + dist
+    List(i, j, dist)
+  } else List.empty
+  }.map { case List(a, b, c) => List(a, b, c/totaldist)
+          case _ => List.empty}
   }
+}
 
-distanceMatrix(xArray)
+distanceMatrix(xArray, sigma = 1)
+
+
+
 
 /*
 val neighbors:Seq[Any] = rowVecsWithNorms.zipWithIndex().flatMap {
