@@ -15,10 +15,10 @@ val xArray = Array(Array(5.0, 4.8, 7.5, 10.0),
         Array(2.2, 1.1, 1.3, 2.3))
 println(x)
 
+/*
 val rowVecs = for ( i <- 0 until x.rows) yield x(i, ::)
 rowVecs.getClass
 val rowNorms = x(*, ::).map(rv => norm(rv, 2.0))
-/*
 val rowVecsWithNorms = rowVecs.zip(rowNorms.valuesIterator).map{
   case (rv, norm) => VectorAndNorm(rv.t, norm)
 }
@@ -27,14 +27,14 @@ val rowVecsWithNorms = rowVecs.zip(rowNorms.valuesIterator).map{
 def distance(xs: Array[Double], ys: Array[Double]): Double  = {
   sqrt((xs zip ys).map { case (x,y) => pow(y - x, 2) }.sum)
 }
-val testseq = 1 to 5
+
+/*
 def combi(s : Seq[Int]) : Seq[(Int, Int)] =
   if(s.isEmpty)
     Seq()
   else
     s.tail.flatMap(x=> Seq(s.head -> x, x -> s.head)) ++ combi(s.tail)
-
-
+*/
 
 
 def findNearestPoints(testPoints: Array[Array[Double]], trainPoints: Array[Array[Double]]): Array[Array[(Int, Double)]] = {
@@ -46,6 +46,14 @@ def findNearestPoints(testPoints: Array[Array[Double]], trainPoints: Array[Array
 }
 
 findNearestPoints(testPoints = xArray, trainPoints = xArray)
+
+def distanceMatrix(points: Array[Array[Double]]): Array[Array[List[Double]]] =
+  points.zipWithIndex.map { case (vec1, i) => points.zipWithIndex.map { case (vec2, j) =>
+    List(i, j, distance(vec1, vec2))
+    }
+  }
+
+distanceMatrix(xArray)
 
 /*
 val neighbors:Seq[Any] = rowVecsWithNorms.zipWithIndex().flatMap {
