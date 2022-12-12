@@ -26,4 +26,3 @@ object SparkSessionTest extends App{
   println("Deploy Mode :"+sparkSession2.sparkContext.deployMode);
   println("Master :"+sparkSession2.sparkContext.master);
 }
-*/

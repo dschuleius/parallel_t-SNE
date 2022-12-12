@@ -11,5 +11,20 @@ SBT with .jar compiling to be fed into Google Dataproc.
 - Retrieve SBT libraryDependencies from https://mvnrepository.com/artifact/org.apache.spark/spark-core
 
 
+## Resources
+- https://github.com/saurfang/spark-tsne
+- https://docs.scala-lang.org/scala3/book/introduction.html
+- https://www.oreilly.com/content/an-illustrated-introduction-to-the-t-sne-algorithm/
+- https://www.youtube.com/watch?v=-8V6bMjThNo&list=PLmtsMNDRU0BxryRX4wiwrTZ661xcp6VPM
+- https://www.youtube.com/watch?v=-NleKOVsl28
+- https://sparkour.urizone.net/recipes/building-sbt/
+- 
+
+
 ## TODO
 - find out all about breeze.linalg and breeze.numerics
+
+
+## Additional
+- Docker
+- Unit tests
