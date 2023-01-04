@@ -22,9 +22,23 @@ SBT with .jar compiling to be fed into Google Dataproc.
 
 
 ## TODO
-- find out all about breeze.linalg and breeze.numerics
+### Two implementations: 
+- in basic Scala using multi-dim Arrays of type `Array[Array[Double]]`
+- (Barnes-Hut t-SNE in Scala)
+- in Spark using `pyspark.mllib.linalg.distributed.RowMatrix`
+
+1. Understand the t-SNE algorithm
+   1. Calculation of conditional probabilities and similarity scores in original space using Gaussian distribution.
+      1. Calculation of the `perplexity` parameter, related to variance of the Gaussian kernel (sigma), using the entropy of the distribution used for calculating the original space similarity scores.
+   2. Calculation of conditional probabilities and similarity scores in lower-dim space using t-distribution.
+   3. Implement PCA in Scala to obtain initial 2-dim representation of input data.
+   4. Implement GD optimization of the KL-divergence (SGD, Momentum?).
+2. Understand how to import the MNIST dataset into Scala and make it usable in the required formats for both implementations.
+   1. For Spark implementation: Use of Spark Streaming to deal with possibly large datasets?
+3. Implement visualization that takes snapshot after each (n-th, resp.) optimization step and turns snapshot-frames into animation.
 
 
-## Additional
+
+## Additional TODOs
 - Docker
 - Unit tests
