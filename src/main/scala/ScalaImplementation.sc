@@ -75,6 +75,7 @@ println(calculatePairwiseDistances(data)(1)(199))
 
 def computeSimilarityScores(distances: Array[Array[Double]], sigma: Double): Array[Array[Double]] = {
   // check that distance matrix is symmetric, i.e. n x n, otherwise throw error
+  assert(distances.length == distances(0).length, "Distance-Matrix is not symmetric.")
   val n = distances.length
   val unnormSimilarities = Array.ofDim[Double](n, n)
   val normSimilarities = Array.ofDim[Double](n, n)
@@ -111,27 +112,40 @@ println(Xmean)
 println(covMatrixCalc(XDense))
 
 // obtain first lower dimensional representation of points using PCA
-
-// this is ChatGPT output that does not work as the breeze.linalg.mean function and
-// the breeze.linalg.cov functions don't seem to exist (anymore)
-/*
 def pca(data: Array[Array[Double]]): Array[Array[Double]] = {
-  // Calculate the mean of each feature
-  val datamatrix = DenseMatrix(data: _*)
-  val means = mean(datamatrix(*, ::)).toArray
 
-  // Center the data by subtracting the mean
-  //val centeredData = data.map(row => row.zip(means).map { case (x, mean) => x - mean })
+  // assert non-empty Array and no empty rows
+  if (data.isEmpty || data.exists(_.isEmpty)) {
+    throw new IllegalArgumentException("Data array cannot be empty or contain empty rows")
+  }
 
-  // Calculate the covariance matrix of the centered data
-  val covMat = cov(DenseMatrix(data: _*), center = false)
+  // assert symmetric multi-dim Array
+  if (data.map(_.length).distinct.length > 1) {
+    throw new IllegalArgumentException("Rows in data array must have the same number of columns")
+  }
 
-  // Perform singular value decomposition
-  val svd.SVD(u, s, v) = svd(covMat)
+  // Convert data to Breeze DenseMatrix
+  val dataMatrix = DenseMatrix(data.map(row => DenseVector(row)): _*)
 
-  // Take the first two columns of U as the basis
-  val basis = u(::, 0 to 1).toArray
+  // Subtract mean from each column
+  val meanVector = breeze.stats.mean(dataMatrix(::, *))
+  val centeredDataMatrix = dataMatrix(::, *) - meanVector.t
 
-  // Project the data onto the new basis
-  data.map(row => row.zip(basis).map { case (x, b) => DenseVector(b) dot DenseVector(row) })
+  // Compute covariance matrix
+  val covMatrix = breeze.linalg.cov(centeredDataMatrix)
+
+  // Compute eigenvalues and eigenvectors of covariance matrix
+  // https://lamastex.github.io/scalable-data-science/db/xtraResources/LinearAlgebra/LAlgCheatSheet.html
+  //val (eigenValues, eigenVectors) = breeze.linalg.eig(covMatrix)
+
+  // Sort eigenvalues and eigenvectors in descending order
+  val sortedEigenVectors = eigenVectors(*, eigenValues.argsort.reverse)
+
+  // Project data onto top k eigenvectors
+  val k = 2  // choose top k eigenvectors
+  val topEigenVectors = sortedEigenVectors(::, 0 until k)
+  val projectedData = (topEigenVectors.t * centeredDataMatrix.t).t
+
+  // Convert projected data back to Array[Array[Double]]
+  projectedData.toArray.map(_.toArray)
 }
