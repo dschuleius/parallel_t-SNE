@@ -1,8 +1,30 @@
 // This file contains an implementation of t-SNE using plain Scala without parallel data collections
 
-
+import scala.io.Source
 import breeze.linalg._
 import breeze.stats.mean
+
+/*
+// handle MNIST file import
+def importData(fileName: String): Array[Array[Double]] = {
+  // Read the file and split it into lines
+  val lines = Source.fromFile(fileName).getLines.toArray
+
+  // Split each line into fields and convert the fields to doubles
+
+  val data = lines.map(_.split("\\s+").map(_.toDouble))
+
+  // Return the data as an array of arrays of doubles
+  data
+}
+
+// testing importData
+importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt")
+*/
+val imp = Source.fromFile("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt").getLines.take(2)
+while(imp.hasNext){print(imp.next())}
+
+
 
 def euclideanDistance(point1: Array[Double], point2: Array[Double]): Double = {
   // Calculate the squared Euclidean distance between the two points

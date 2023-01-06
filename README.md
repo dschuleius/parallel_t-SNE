@@ -35,7 +35,8 @@ SBT with .jar compiling to be fed into Google Dataproc.
    4. Implement GD optimization of the KL-divergence (SGD, Momentum?).
 2. Understand how to import the MNIST dataset into Scala and make it usable in the required formats for both implementations.
    1. For Spark implementation: Use of Spark Streaming to deal with possibly large datasets?
-3. Implement visualization that takes snapshot after each (n-th, resp.) optimization step and turns snapshot-frames into animation.
+3. Run small scale script (e.g. similarity score calculation and PCA) in Google Dataproc Cluster.
+4. Implement visualization that takes snapshot after each (n-th, resp.) optimization step and turns snapshot-frames into animation.
 
 
 
