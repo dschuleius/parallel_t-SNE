@@ -111,41 +111,48 @@ val Xmean = mean(XDense(*, ::))
 println(Xmean)
 println(covMatrixCalc(XDense))
 
+val A: DenseMatrix[Double] = DenseMatrix((1.0, 2.0), (3.0, 4.0))
+val (eigenvalues, eigenvectors) = eig(A)
+println(eigenvalues)
+
+/*
 // obtain first lower dimensional representation of points using PCA
 def pca(data: Array[Array[Double]]): Array[Array[Double]] = {
 
-  // assert non-empty Array and no empty rows
-  if (data.isEmpty || data.exists(_.isEmpty)) {
-    throw new IllegalArgumentException("Data array cannot be empty or contain empty rows")
-  }
+// assert non-empty Array and no empty rows
+if (data.isEmpty || data.exists(_.isEmpty)) {
+  throw new IllegalArgumentException("Data array cannot be empty or contain empty rows")
+}
 
-  // assert symmetric multi-dim Array
-  if (data.map(_.length).distinct.length > 1) {
-    throw new IllegalArgumentException("Rows in data array must have the same number of columns")
-  }
+// assert symmetric multi-dim Array
+if (data.map(_.length).distinct.length > 1) {
+  throw new IllegalArgumentException("Rows in data array must have the same number of columns")
+}
 
-  // Convert data to Breeze DenseMatrix
-  val dataMatrix = DenseMatrix(data.map(row => DenseVector(row)): _*)
+// Convert data to Breeze DenseMatrix
+val dataMatrix = DenseMatrix(data.map(row => DenseVector(row)): _*)
 
-  // Subtract mean from each column
-  val meanVector = breeze.stats.mean(dataMatrix(::, *))
-  val centeredDataMatrix = dataMatrix(::, *) - meanVector.t
+// Subtract mean from each column
+val meanVector = breeze.stats.mean(dataMatrix(::, *))
+val centeredDataMatrix = dataMatrix(::, *) - meanVector.t
 
-  // Compute covariance matrix
-  val covMatrix = breeze.linalg.cov(centeredDataMatrix)
+// Compute covariance matrix
+val covMatrix = breeze.linalg.cov(centeredDataMatrix)
 
-  // Compute eigenvalues and eigenvectors of covariance matrix
-  // https://lamastex.github.io/scalable-data-science/db/xtraResources/LinearAlgebra/LAlgCheatSheet.html
-  //val (eigenValues, eigenVectors) = breeze.linalg.eig(covMatrix)
 
-  // Sort eigenvalues and eigenvectors in descending order
-  val sortedEigenVectors = eigenVectors(*, eigenValues.argsort.reverse)
+// Compute eigenvalues and eigenvectors of covariance matrix
+// https://lamastex.github.io/scalable-data-science/db/xtraResources/LinearAlgebra/LAlgCheatSheet.html
+//val (eigenValues, eigenVectors) = breeze.linalg.eig(covMatrix)
 
-  // Project data onto top k eigenvectors
-  val k = 2  // choose top k eigenvectors
-  val topEigenVectors = sortedEigenVectors(::, 0 until k)
-  val projectedData = (topEigenVectors.t * centeredDataMatrix.t).t
 
-  // Convert projected data back to Array[Array[Double]]
-  projectedData.toArray.map(_.toArray)
+// Sort eigenvalues and eigenvectors in descending order
+val sortedEigenVectors = eigenVectors(*, eigenValues.argsort.reverse)
+
+// Project data onto top k eigenvectors
+val k = 2  // choose top k eigenvectors
+val topEigenVectors = sortedEigenVectors(::, 0 until k)
+val projectedData = (topEigenVectors.t * centeredDataMatrix.t).t
+
+// Convert projected data back to Array[Array[Double]]
+projectedData.toArray.map(_.toArray)
 }
