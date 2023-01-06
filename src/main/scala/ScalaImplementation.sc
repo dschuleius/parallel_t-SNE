@@ -5,10 +5,10 @@ import breeze.linalg._
 import breeze.stats.mean
 
 
-// handle MNIST file import
-def importData(fileName: String): Array[Array[Double]] = {
+// handle MNIST file import, take first 'sampleSize' entries.
+def importData(fileName: String, sampleSize: Int): Array[Array[Double]] = {
   // Read the file and split it into lines
-  val lines = Source.fromFile(fileName).getLines.toArray
+  val lines = Source.fromFile(fileName).getLines.take(sampleSize).toArray
 
   // Split each line into fields and convert the fields to doubles
   // trim removes leading and trailing blank space from each field
@@ -20,15 +20,12 @@ def importData(fileName: String): Array[Array[Double]] = {
 
 // testing importData
 // relative path does not work, probably problem with SBT folder structure
-val labels = importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt")
-val data = importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt")
+val labels = importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt", 200)
+val data = importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", 200)
 
 
-val imp = Source.fromFile("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt").getLines.take(2)
-while(imp.hasNext){print(imp.next())}
-
-
-
+// ----------------------------
+// HELPER FUNCTIONS for L2 distance and Cov-Matrix
 def euclideanDistance(point1: Array[Double], point2: Array[Double]): Double = {
   // Calculate the squared Euclidean distance between the two points
   val squaredDistance = point1.zip(point2).map { case (x, y) => (x - y) * (x - y) }.sum
@@ -48,6 +45,8 @@ def covMatrixCalc(A:DenseMatrix[Double]):DenseMatrix[Double] = {
   (C+C.t) *:* 0.5
 
 }
+// ----------------------------
+
 
 def calculatePairwiseDistances(points: Array[Array[Double]]): Array[Array[Double]] = {
   // initialize the distance matrix
@@ -55,7 +54,13 @@ def calculatePairwiseDistances(points: Array[Array[Double]]): Array[Array[Double
 
   // calculate the pairwise distances between all points
   for (i <- points.indices; j <- points.indices) {
-    distances(i)(j) = euclideanDistance(points(i), points(j))
+    if (i < j) {
+      // calculate only right upper triangle and duplicate values
+      distances(i)(j) = euclideanDistance(points(i), points(j))
+      distances(j)(i) = distances(i)(j)
+      // set diagonal to 0
+      distances(i)(i) = 1
+    }
   }
 
   // Return the distance matrix
@@ -63,21 +68,28 @@ def calculatePairwiseDistances(points: Array[Array[Double]]): Array[Array[Double
 }
 
 
-
 // testing of calculatePairwiseDistances function
 val X = Array(Array(1, 1.5, 1.8), Array(8, 9, 8.2), Array(15, 14, 3.1))
 println(euclideanDistance(point1 = Array(1, 1.2, 2), point2 = Array(10, 11, 12)))
-println(calculatePairwiseDistances(X)(0)(0))
+println(calculatePairwiseDistances(data)(1)(199))
 
 def computeSimilarityScores(distances: Array[Array[Double]], sigma: Double): Array[Array[Double]] = {
+  // check that distance matrix is symmetric, i.e. n x n, otherwise throw error
   val n = distances.length
   val unnormSimilarities = Array.ofDim[Double](n, n)
   val normSimilarities = Array.ofDim[Double](n, n)
   for (i <- 0 until n) {
     for (j <- 0 until n) {
-      unnormSimilarities(i)(j) = math.exp(-1 * scala.math.pow(distances(i)(j), 2) / (2 * scala.math.pow(sigma, 2)))
+      // use yield to obtain "buffered for-loop" that returns all collection of all yielded values.
+      unnormSimilarities(i)(j) = {
+        (math.exp(-1 * scala.math.pow(distances(i)(j), 2) / (2 * scala.math.pow(sigma, 2)))) /
+          (for (k <- 0 until n if k != i) yield math.exp(-1 * scala.math.pow(distances(i)(k), 2) /
+            (2 * scala.math.pow(sigma, 2)))).sum
+      }
     }
   }
+  // average the two similarity scores from p-th to q-th point and from q-th to p-th point.
+  // sim. scores might differ, as different perplexity and thus sigma is used for Gauss. kernel.
   for (i <- 0 until n) {
     for (j <- 0 until n) {
       normSimilarities(i)(j) = (unnormSimilarities(i)(j) + unnormSimilarities(j)(i)) / (2 * n)
@@ -87,8 +99,12 @@ def computeSimilarityScores(distances: Array[Array[Double]], sigma: Double): Arr
 }
 
 
+
 // testing of computeSimilarityScore function
-println(computeSimilarityScores(distances = calculatePairwiseDistances(X), sigma = 1)(1)(0))
+println(computeSimilarityScores(distances = calculatePairwiseDistances(data), sigma = 1)(5)(12))
+
+
+
 val XDense = DenseMatrix(X: _*)
 val Xmean = mean(XDense(*, ::))
 println(Xmean)
