@@ -3,6 +3,7 @@
 import scala.io.Source
 import breeze.linalg._
 import breeze.stats.mean
+import breeze.util.JavaArrayOps.dmToArray2
 
 
 // handle MNIST file import, take first 'sampleSize' entries.
@@ -20,8 +21,8 @@ def importData(fileName: String, sampleSize: Int): Array[Array[Double]] = {
 
 // testing importData
 // relative path does not work, probably problem with SBT folder structure
-val labels = importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt", 200)
-val data = importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", 200)
+val MNISTlabels = importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt", 10)
+val MNISTdata = importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", 10)
 
 
 // ----------------------------
@@ -71,8 +72,10 @@ def calculatePairwiseDistances(points: Array[Array[Double]]): Array[Array[Double
 // testing of calculatePairwiseDistances function
 val X = Array(Array(1, 1.5, 1.8), Array(8, 9, 8.2), Array(15, 14, 3.1))
 println(euclideanDistance(point1 = Array(1, 1.2, 2), point2 = Array(10, 11, 12)))
-println(calculatePairwiseDistances(data)(1)(199))
+println(calculatePairwiseDistances(MNISTdata)(1)(9))
 
+// computeSimilarityScores only implemented with CONSTANT SIGMA so far
+// to add: Perplexity => adaptive Sigma
 def computeSimilarityScores(distances: Array[Array[Double]], sigma: Double): Array[Array[Double]] = {
   // check that distance matrix is symmetric, i.e. n x n, otherwise throw error
   assert(distances.length == distances(0).length, "Distance-Matrix is not symmetric.")
@@ -102,7 +105,7 @@ def computeSimilarityScores(distances: Array[Array[Double]], sigma: Double): Arr
 
 
 // testing of computeSimilarityScore function
-println(computeSimilarityScores(distances = calculatePairwiseDistances(data), sigma = 1)(5)(12))
+println(computeSimilarityScores(distances = calculatePairwiseDistances(MNISTdata), sigma = 1)(5)(4))
 
 
 
@@ -133,9 +136,19 @@ def sortColumns(matrix: DenseMatrix[Double], vector: DenseVector[Double]): Dense
 val B: DenseMatrix[Double] = DenseMatrix((1.1, 20.1, 311.1), (1.0, 20.1, 300.11), (1.0, 20.0, 303.0))
 val Bvec: DenseVector[Double] = DenseVector(1, 10, 200)
 println(sortColumns(B, Bvec))
+// seems to work well
 
 
-/*
+def subtractVectorFromMatrix(mat: DenseMatrix[Double], vec: DenseVector[Double]): DenseMatrix[Double] = {
+  val n = mat.rows
+  val p = mat.cols
+  val result = DenseMatrix.zeros[Double](n, p)
+  for (i <- 0 until n; j <- 0 until p) {
+    result(i, j) = mat(i, j) - vec(j)
+  }
+  result
+}
+
 // obtain first lower dimensional representation of points using PCA
 def pca(data: Array[Array[Double]]): Array[Array[Double]] = {
   // assert non-empty Array and no empty rows
@@ -151,15 +164,15 @@ def pca(data: Array[Array[Double]]): Array[Array[Double]] = {
   // Convert data to breeze DenseMatrix
   val dataMatrix = DenseMatrix(data.map(row => DenseVector(row)): _*)
 
-  // Subtract mean from each column
-  val meanVector = breeze.stats.mean(dataMatrix(::, *))
-  val centeredDataMatrix = dataMatrix(::, *) - meanVector.t
+  // Calculate column mean as vector of sum of columns multiplied by 1/#rows
+  // Subtract column means from respective column entries in dataMatrix
+  val meanVector = sum(dataMatrix(::, *)) *:* (1.0/dataMatrix.rows.toDouble)
+  val centeredDataMatrix = subtractVectorFromMatrix(dataMatrix, meanVector.t)
 
   // Compute covariance matrix
   val covMatrix = breeze.linalg.cov(centeredDataMatrix)
 
   // Compute eigenvalues and eigenvectors of covariance matrix
-  // https://lamastex.github.io/scalable-data-science/db/xtraResources/LinearAlgebra/LAlgCheatSheet.html
   val es = eigSym(covMatrix)
   val eigenValues = es.eigenvalues
   val eigenVectors = es.eigenvectors
@@ -173,5 +186,11 @@ def pca(data: Array[Array[Double]]): Array[Array[Double]] = {
   val projectedData = (topEigenVectors.t * centeredDataMatrix.t).t
 
   // Convert projected data back to Array[Array[Double]]
-  projectedData.toArray.map(_.toArray)
+  val projDataArray = dmToArray2(projectedData)
+
+  projDataArray
 }
+
+
+// testing pca function
+val pcaMNISTdata: Array[Array[Double]] = pca(MNISTdata)
