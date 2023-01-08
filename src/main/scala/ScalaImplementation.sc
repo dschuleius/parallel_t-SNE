@@ -44,7 +44,36 @@ def covMatrixCalc(A:DenseMatrix[Double]):DenseMatrix[Double] = {
   val C = (D*D.t) *:* (1.0/(n-1))
   // make exactly symmetric
   (C+C.t) *:* 0.5
+}
 
+// sortColumns and subtractVectorFromMatrix helper functions for PCA function
+def sortColumns(matrix: DenseMatrix[Double], vector: DenseVector[Double]): DenseMatrix[Double] = {
+  // sort Array in descending order
+  val sortedVector = vector.toArray.sortWith(_ > _)
+  val sortedMatrix = DenseMatrix.zeros[Double](matrix.rows, matrix.cols)
+  for (i <- 0 until matrix.cols) {
+    val colIndex = vector.findAll(_ == sortedVector(i)).head
+    sortedMatrix(::, i) := matrix(::, colIndex)
+  }
+  sortedMatrix
+}
+
+// testing sortColumns
+// DenseMatrix constructor takes in Lists as rows!!
+val B: DenseMatrix[Double] = DenseMatrix((1.1, 20.1, 311.1), (1.0, 20.1, 300.11), (1.0, 20.0, 303.0))
+val Bvec: DenseVector[Double] = DenseVector(1, 10, 200)
+println(sortColumns(B, Bvec))
+// seems to work well
+
+
+def subtractVectorFromMatrix(mat: DenseMatrix[Double], vec: DenseVector[Double]): DenseMatrix[Double] = {
+  val n = mat.rows
+  val p = mat.cols
+  val result = DenseMatrix.zeros[Double](n, p)
+  for (i <- 0 until n; j <- 0 until p) {
+    result(i, j) = mat(i, j) - vec(j)
+  }
+  result
 }
 // ----------------------------
 
@@ -108,49 +137,17 @@ def computeSimilarityScores(distances: Array[Array[Double]], sigma: Double): Arr
 println(computeSimilarityScores(distances = calculatePairwiseDistances(MNISTdata), sigma = 1)(5)(4))
 
 
-
+// to transform Array of Arrays into DenseMatrix: use DenseMatrix(ArrayOfArrays: _*)
 val XDense = DenseMatrix(X: _*)
 val Xmean = mean(XDense(*, ::))
 println(Xmean)
 println(covMatrixCalc(XDense))
 
-val A: DenseMatrix[Double] = DenseMatrix((1.0, 3.0), (3.0, 1.0))
-val estest = eigSym(A)
-val evecTest = estest.eigenvectors
 
 
-
-def sortColumns(matrix: DenseMatrix[Double], vector: DenseVector[Double]): DenseMatrix[Double] = {
-  // sort Array in descending order
-  val sortedVector = vector.toArray.sortWith(_ > _)
-  val sortedMatrix = DenseMatrix.zeros[Double](matrix.rows, matrix.cols)
-  for (i <- 0 until matrix.cols) {
-    val colIndex = vector.findAll(_ == sortedVector(i)).head
-    sortedMatrix(::, i) := matrix(::, colIndex)
-  }
-  sortedMatrix
-}
-
-// testing sortColumns
-// DenseMatrix constructor takes in Lists as rows!!
-val B: DenseMatrix[Double] = DenseMatrix((1.1, 20.1, 311.1), (1.0, 20.1, 300.11), (1.0, 20.0, 303.0))
-val Bvec: DenseVector[Double] = DenseVector(1, 10, 200)
-println(sortColumns(B, Bvec))
-// seems to work well
-
-
-def subtractVectorFromMatrix(mat: DenseMatrix[Double], vec: DenseVector[Double]): DenseMatrix[Double] = {
-  val n = mat.rows
-  val p = mat.cols
-  val result = DenseMatrix.zeros[Double](n, p)
-  for (i <- 0 until n; j <- 0 until p) {
-    result(i, j) = mat(i, j) - vec(j)
-  }
-  result
-}
 
 // obtain first lower dimensional representation of points using PCA
-def pca(data: Array[Array[Double]]): Array[Array[Double]] = {
+def pca(data: Array[Array[Double]], k: Int): Array[Array[Double]] = {
   // assert non-empty Array and no empty rows
   if (data.isEmpty || data.exists(_.isEmpty)) {
     throw new IllegalArgumentException("Data array cannot be empty or contain empty rows")
@@ -165,23 +162,24 @@ def pca(data: Array[Array[Double]]): Array[Array[Double]] = {
   val dataMatrix = DenseMatrix(data.map(row => DenseVector(row)): _*)
 
   // Calculate column mean as vector of sum of columns multiplied by 1/#rows
+  // Element-wise division is not implemented as it seems, so use mult. by inverse.
   // Subtract column means from respective column entries in dataMatrix
   val meanVector = sum(dataMatrix(::, *)) *:* (1.0/dataMatrix.rows.toDouble)
   val centeredDataMatrix = subtractVectorFromMatrix(dataMatrix, meanVector.t)
 
-  // Compute covariance matrix
+  // Compute covariance matrix (symmetric).
   val covMatrix = breeze.linalg.cov(centeredDataMatrix)
 
-  // Compute eigenvalues and eigenvectors of covariance matrix
+  // Compute eigenvalues and eigenvectors of covariance matrix.
   val es = eigSym(covMatrix)
   val eigenValues = es.eigenvalues
   val eigenVectors = es.eigenvectors
 
-  // Sort eigenvalues and eigenvectors in descending order
+  // Sort eigenvalues and eigenvectors in descending order.
   val sortedEigenVectors = sortColumns(eigenVectors, eigenValues)
 
-  // Project data onto top k eigenvectors
-  val k = 2  // choose top k eigenvectors
+  // Project data onto top k eigenvectors (change-of-basis).
+  // choose top k eigenvectors
   val topEigenVectors = sortedEigenVectors(::, 0 until k)
   val projectedData = (topEigenVectors.t * centeredDataMatrix.t).t
 
