@@ -19,6 +19,8 @@ SBT with .jar compiling to be fed into Google Dataproc.
 - https://www.youtube.com/watch?v=-NleKOVsl28
 - https://sparkour.urizone.net/recipes/building-sbt/
 - https://www.youtube.com/watch?v=NEaUSP4YerM Stats Quest: basic explanation of t-SNE
+- https://github.com/scalanlp/breeze/wiki/Linear-Algebra-Cheat-Sheet#operations Breeze LinAlg CheatSheet
+- https://databricks-prod-cloudfront.cloud.databricks.com/public/4027ec902e239c93eaaa8714f173bcfc/8623654525287098/4373605817327958/8746817301327119/latest.html PCA in Spark using MLLib
 
 
 ## TODO
