@@ -111,48 +111,67 @@ val Xmean = mean(XDense(*, ::))
 println(Xmean)
 println(covMatrixCalc(XDense))
 
-val A: DenseMatrix[Double] = DenseMatrix((1.0, 2.0), (3.0, 4.0))
-val (eigenvalues, eigenvectors) = eig(A)
-println(eigenvalues)
+val A: DenseMatrix[Double] = DenseMatrix((1.0, 3.0), (3.0, 1.0))
+val estest = eigSym(A)
+val evecTest = estest.eigenvectors
+
+
+
+def sortColumns(matrix: DenseMatrix[Double], vector: DenseVector[Double]): DenseMatrix[Double] = {
+  // sort Array in descending order
+  val sortedVector = vector.toArray.sortWith(_ > _)
+  val sortedMatrix = DenseMatrix.zeros[Double](matrix.rows, matrix.cols)
+  for (i <- 0 until matrix.cols) {
+    val colIndex = vector.findAll(_ == sortedVector(i)).head
+    sortedMatrix(::, i) := matrix(::, colIndex)
+  }
+  sortedMatrix
+}
+
+// testing sortColumns
+// DenseMatrix constructor takes in Lists as rows!!
+val B: DenseMatrix[Double] = DenseMatrix((1.1, 20.1, 311.1), (1.0, 20.1, 300.11), (1.0, 20.0, 303.0))
+val Bvec: DenseVector[Double] = DenseVector(1, 10, 200)
+println(sortColumns(B, Bvec))
+
 
 /*
 // obtain first lower dimensional representation of points using PCA
 def pca(data: Array[Array[Double]]): Array[Array[Double]] = {
+  // assert non-empty Array and no empty rows
+  if (data.isEmpty || data.exists(_.isEmpty)) {
+    throw new IllegalArgumentException("Data array cannot be empty or contain empty rows")
+  }
 
-// assert non-empty Array and no empty rows
-if (data.isEmpty || data.exists(_.isEmpty)) {
-  throw new IllegalArgumentException("Data array cannot be empty or contain empty rows")
-}
+  // assert symmetric multi-dim Array
+  if (data.map(_.length).distinct.length > 1) {
+    throw new IllegalArgumentException("Rows in data array must have the same number of columns")
+  }
 
-// assert symmetric multi-dim Array
-if (data.map(_.length).distinct.length > 1) {
-  throw new IllegalArgumentException("Rows in data array must have the same number of columns")
-}
+  // Convert data to breeze DenseMatrix
+  val dataMatrix = DenseMatrix(data.map(row => DenseVector(row)): _*)
 
-// Convert data to Breeze DenseMatrix
-val dataMatrix = DenseMatrix(data.map(row => DenseVector(row)): _*)
+  // Subtract mean from each column
+  val meanVector = breeze.stats.mean(dataMatrix(::, *))
+  val centeredDataMatrix = dataMatrix(::, *) - meanVector.t
 
-// Subtract mean from each column
-val meanVector = breeze.stats.mean(dataMatrix(::, *))
-val centeredDataMatrix = dataMatrix(::, *) - meanVector.t
+  // Compute covariance matrix
+  val covMatrix = breeze.linalg.cov(centeredDataMatrix)
 
-// Compute covariance matrix
-val covMatrix = breeze.linalg.cov(centeredDataMatrix)
+  // Compute eigenvalues and eigenvectors of covariance matrix
+  // https://lamastex.github.io/scalable-data-science/db/xtraResources/LinearAlgebra/LAlgCheatSheet.html
+  val es = eigSym(covMatrix)
+  val eigenValues = es.eigenvalues
+  val eigenVectors = es.eigenvectors
 
+  // Sort eigenvalues and eigenvectors in descending order
+  val sortedEigenVectors = sortColumns(eigenVectors, eigenValues)
 
-// Compute eigenvalues and eigenvectors of covariance matrix
-// https://lamastex.github.io/scalable-data-science/db/xtraResources/LinearAlgebra/LAlgCheatSheet.html
-//val (eigenValues, eigenVectors) = breeze.linalg.eig(covMatrix)
+  // Project data onto top k eigenvectors
+  val k = 2  // choose top k eigenvectors
+  val topEigenVectors = sortedEigenVectors(::, 0 until k)
+  val projectedData = (topEigenVectors.t * centeredDataMatrix.t).t
 
-
-// Sort eigenvalues and eigenvectors in descending order
-val sortedEigenVectors = eigenVectors(*, eigenValues.argsort.reverse)
-
-// Project data onto top k eigenvectors
-val k = 2  // choose top k eigenvectors
-val topEigenVectors = sortedEigenVectors(::, 0 until k)
-val projectedData = (topEigenVectors.t * centeredDataMatrix.t).t
-
-// Convert projected data back to Array[Array[Double]]
-projectedData.toArray.map(_.toArray)
+  // Convert projected data back to Array[Array[Double]]
+  projectedData.toArray.map(_.toArray)
 }
