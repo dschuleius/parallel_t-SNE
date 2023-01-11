@@ -35,16 +35,23 @@ def euclideanDistance(point1: Array[Double], point2: Array[Double]): Double = {
   Math.sqrt(squaredDistance)
 }
 
+/*
 // COPIED FROM https://groups.google.com/g/scala-breeze/c/fMsAQvHFkMs
 def covMatrixCalc(A:DenseMatrix[Double]):DenseMatrix[Double] = {
   val n = A.cols
   val D:DenseMatrix[Double] = A.copy
-  val mu:DenseVector[Double] = sum(D,Axis._1) *:* (1.0/(n-1)) // sum along rows --> col vector
-  (0 until n).map(i => D(::,i):-=mu)
+  val mu:DenseVector[Double] = sum(D, Axis._1) *:* (1.0/n) // sum along rows --> col vector
+  (0 until n).map(i => D(::,i) :-= mu)
   val C = (D*D.t) *:* (1.0/(n-1))
   // make exactly symmetric
   (C+C.t) *:* 0.5
 }
+
+// testing covMatrixCalc
+val covTestMatrix: DenseMatrix[Double] = DenseMatrix((2.0, 20.0, 300.0), (1.0, 19.0, 301.0), (3.0, 25.0, 299.0))
+println(covMatrixCalc(covTestMatrix))
+// checked with R output, works well!
+*/
 
 // sortColumns and subtractVectorFromMatrix helper functions for PCA function
 def sortColumns(matrix: DenseMatrix[Double], vector: DenseVector[Double]): DenseMatrix[Double] = {
@@ -61,11 +68,11 @@ def sortColumns(matrix: DenseMatrix[Double], vector: DenseVector[Double]): Dense
 // testing sortColumns
 // DenseMatrix constructor takes in Lists as rows!!
 val B: DenseMatrix[Double] = DenseMatrix((1.1, 20.1, 311.1), (1.0, 20.1, 300.11), (1.0, 20.0, 303.0))
-val Bvec: DenseVector[Double] = DenseVector(1, 10, 200)
+val Bvec: DenseVector[Double] = DenseVector(-1, 10, 200)
 println(sortColumns(B, Bvec))
 // seems to work well
 
-
+// subtracts a DenseVector from every column of a DenseMatrix
 def subtractVectorFromMatrix(mat: DenseMatrix[Double], vec: DenseVector[Double]): DenseMatrix[Double] = {
   val n = mat.rows
   val p = mat.cols
@@ -75,7 +82,14 @@ def subtractVectorFromMatrix(mat: DenseMatrix[Double], vec: DenseVector[Double])
   }
   result
 }
+
+// testing subtractVectorFromMatrix
+val SVFM: DenseMatrix[Double] = DenseMatrix((1.0, 5.0, 10.0), (2.0, 6.0, 12.0), (3.0, 7.0, 14.0))
+val SVFMvec: DenseVector[Double] = DenseVector(5.0, 5.0, 5.0)
+println(subtractVectorFromMatrix(SVFM, SVFMvec))
+
 // ----------------------------
+
 
 
 def calculatePairwiseDistances(points: Array[Array[Double]]): Array[Array[Double]] = {
@@ -101,11 +115,13 @@ def calculatePairwiseDistances(points: Array[Array[Double]]): Array[Array[Double
 // testing of calculatePairwiseDistances function
 val X = Array(Array(1, 1.5, 1.8), Array(8, 9, 8.2), Array(15, 14, 3.1))
 println(euclideanDistance(point1 = Array(1, 1.2, 2), point2 = Array(10, 11, 12)))
-println(calculatePairwiseDistances(MNISTdata)(1)(9))
+println(calculatePairwiseDistances(X)(0)(1))
+// works as intended, checked with Python
 
-// computeSimilarityScores only implemented with CONSTANT SIGMA so far
+// computeSimilarityScoresGauss calculates SimilarityScores for the high-dim. representation of the data
+// only implemented with CONSTANT SIGMA so far
 // to add: Perplexity => adaptive Sigma
-def computeSimilarityScores(distances: Array[Array[Double]], sigma: Double): Array[Array[Double]] = {
+def computeSimilarityScoresGauss(distances: Array[Array[Double]], sigma: Double): Array[Array[Double]] = {
   // check that distance matrix is symmetric, i.e. n x n, otherwise throw error
   assert(distances.length == distances(0).length, "Distance-Matrix is not symmetric.")
   val n = distances.length
@@ -133,15 +149,42 @@ def computeSimilarityScores(distances: Array[Array[Double]], sigma: Double): Arr
 
 
 
-// testing of computeSimilarityScore function
-println(computeSimilarityScores(distances = calculatePairwiseDistances(MNISTdata), sigma = 1)(5)(4))
+// testing of computeSimilarityScoreGauss function
+println(computeSimilarityScoresGauss(distances = calculatePairwiseDistances(MNISTdata), sigma = 1)(5)(4))
+
+//computeSimilarityScoresT calculates SimilarityScores for low-dim. representation of the data (after PCA)
+def computeSimilarityScoresT(distances: Array[Array[Double]]): Array[Array[Double]] = {
+  // check that distance matrix is symmetric, i.e. n x n, otherwise throw error
+  assert(distances.length == distances(0).length, "Distance-Matrix is not symmetric.")
+  val n = distances.length
+  val unnormSimilarities = Array.ofDim[Double](n, n)
+  val normSimilarities = Array.ofDim[Double](n, n)
+  for (i <- 0 until n) {
+    for (j <- 0 until n) {
+      // use yield to obtain "buffered for-loop" that returns all collection of all yielded values.
+      unnormSimilarities(i)(j) = {
+        (math.exp(-1 * scala.math.pow(distances(i)(j), 2) )) /
+          (for (k <- 0 until n if k != i) yield math.exp(-1 * scala.math.pow(distances(i)(k), 2))).sum
+      }
+    }
+  }
+  // average the two similarity scores from p-th to q-th point and from q-th to p-th point.
+  // sim. scores might differ, as different perplexity and thus sigma is used for Gauss. kernel.
+  for (i <- 0 until n) {
+    for (j <- 0 until n) {
+      normSimilarities(i)(j) = (unnormSimilarities(i)(j) + unnormSimilarities(j)(i)) / (2 * n)
+    }
+  }
+  normSimilarities
+}
+
 
 
 // to transform Array of Arrays into DenseMatrix: use DenseMatrix(ArrayOfArrays: _*)
 val XDense = DenseMatrix(X: _*)
 val Xmean = mean(XDense(*, ::))
 println(Xmean)
-println(covMatrixCalc(XDense))
+
 
 
 
@@ -191,4 +234,9 @@ def pca(data: Array[Array[Double]], k: Int): Array[Array[Double]] = {
 
 
 // testing pca function
-val pcaMNISTdata: Array[Array[Double]] = pca(MNISTdata)
+val pcaMNISTdata: Array[Array[Double]] = pca(MNISTdata, k = 2)
+// result is correct but sign of 2nd principal comp. score is switched
+// no problem though, see
+// https://stats.stackexchange.com/questions/30348/is-it-acceptable-to-reverse-a-sign-of-a-principal-component-score
+println(computeSimilarityScoresT(distances = calculatePairwiseDistances(pcaMNISTdata))(0)(1))
+// seems to work as well
