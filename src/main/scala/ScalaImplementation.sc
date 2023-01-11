@@ -131,7 +131,7 @@ def computeSimilarityScoresGauss(distances: Array[Array[Double]], sigma: Double)
     for (j <- 0 until n) {
       // use yield to obtain "buffered for-loop" that returns all collection of all yielded values.
       unnormSimilarities(i)(j) = {
-        (math.exp(-1 * scala.math.pow(distances(i)(j), 2) / (2 * scala.math.pow(sigma, 2)))) /
+        math.exp(-1 * scala.math.pow(distances(i)(j), 2) / (2 * scala.math.pow(sigma, 2))) /
           (for (k <- 0 until n if k != i) yield math.exp(-1 * scala.math.pow(distances(i)(k), 2) /
             (2 * scala.math.pow(sigma, 2)))).sum
       }
@@ -215,11 +215,9 @@ def pca(data: Array[Array[Double]], k: Int): Array[Array[Double]] = {
 
   // Compute eigenvalues and eigenvectors of covariance matrix.
   val es = eigSym(covMatrix)
-  val eigenValues = es.eigenvalues
-  val eigenVectors = es.eigenvectors
 
   // Sort eigenvalues and eigenvectors in descending order.
-  val sortedEigenVectors = sortColumns(eigenVectors, eigenValues)
+  val sortedEigenVectors = sortColumns(es.eigenvectors, es.eigenvalues)
 
   // Project data onto top k eigenvectors (change-of-basis).
   // choose top k eigenvectors
@@ -240,3 +238,42 @@ val pcaMNISTdata: Array[Array[Double]] = pca(MNISTdata, k = 2)
 // https://stats.stackexchange.com/questions/30348/is-it-acceptable-to-reverse-a-sign-of-a-principal-component-score
 println(computeSimilarityScoresT(distances = calculatePairwiseDistances(pcaMNISTdata))(0)(1))
 // seems to work as well
+
+
+// optimization using GD, make SimilarityScore matrices P (high-dim) and Q (low-dim) as similar as possible.
+// we use the gradient etc. described in the "Symmetric SNE" section of the original paper.
+def optimizer(P:Array[Array[Double]],
+              Q:Array[Array[Double]],
+              max_iter:Int = 1000,
+              initial_momentum:Double = 0.5,
+              final_momentum:Double = 0.8,
+              lr:Double = 500): Array[Array[Double]] = {
+  assert(P.length == Q.length, "SimilarityScore multi-dim. Arrays must have the same number of rows.")
+  assert(P(0).length == Q(0).length, "SimilarityScore multi-dim. Arrays must have the same number of columns.")
+  assert(P.length == P(0).length && Q.length == Q(0).length, "SimilarityScore multi-dim. Arrays must be symmetric.")
+
+  val n = P.length
+  val dCdy = Array.ofDim[Double](Q.length, Q(0).length)
+  val iY = Array.ofDim[Double](Q.length, Q(0).length)
+  val Y = pca(MNISTdata, k = 2) // CONVERT INTO PARAM FOR FUNCTION
+  for (iter <- 0 until max_iter) {
+    val PQ: Array[Array[Double]] = P - Q
+
+    // compute gradient: insert into every row of multi-dim. Array dCdy 4*sum_j(p_ij - q_ij)(y_i - y_j).
+    // y points are points in the low-dim space that are moved into clusters by the optimization.
+    (0 until n).foreach { i =>
+      dCdy(i) = (for (j <- 0 until n) yield (P(i)(j)-Q(i)(j)) * (Y(i) - Y(j))).sum
+    }
+
+    // Perform GD update
+    if (iter < 20) {
+      val momentum = initial_momentum
+    } else {
+      val momentum = final_momentum
+    }
+    val iY = momentum * iY - lr * dCdy
+    val Y = Y + iY
+  }
+  Y
+}
+
