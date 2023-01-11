@@ -1,3 +1,9 @@
+# Project News
+- I'd say Perplexity calculation won't be part of the "just" Scala implementation, because it involves grid search and is complicated to implement. 
+   - For the Spark Implementation, we could use the X2P function from saurfang's t-SNE Spark implementation.
+ 
+
+
 # parallel_t-SNE
 Parallel Barnes-Hut t-SNE implementation using Scala and Apache Spark.
 
