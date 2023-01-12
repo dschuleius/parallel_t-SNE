@@ -88,6 +88,19 @@ val SVFM: DenseMatrix[Double] = DenseMatrix((1.0, 5.0, 10.0), (2.0, 6.0, 12.0), 
 val SVFMvec: DenseVector[Double] = DenseVector(5.0, 5.0, 5.0)
 println(subtractVectorFromMatrix(SVFM, SVFMvec))
 
+
+
+def stackVector(vector: DenseVector[Double], n: Int): DenseMatrix[Double] = {
+  DenseMatrix.tabulate[Double](n, vector.size)((i, j) => vector(j))
+}
+
+// testing stackVector
+val vector = DenseVector(1.0, 2.0, 3.0)
+val n = 3
+val result = stackVector(vector, n)
+println(result)
+
+
 // ----------------------------
 
 
@@ -289,22 +302,28 @@ def optimizer(Y:Array[Array[Double]],
 // testing optimizer function
 val Ptest = computeSimilarityScoresGauss(distances = calculatePairwiseDistances(MNISTdata), sigma = 1)
 println(Ptest.length, Ptest(0).length)
-val Qtest = computeSimilarityScoresT(distances = calculatePairwiseDistances(MNISTdata))
+val Qtest = computeSimilarityScoresT(distances = calculatePairwiseDistances(MNISTdata))._1
 val PQtest = Ptest-Qtest
 val Ytest = pcaMNISTdata
+val numtest = computeSimilarityScoresT(distances = calculatePairwiseDistances(MNISTdata))._2
 val ntest = Qtest.length
-val dCdYtest = DenseMatrix.zeros(ntest, ntest)
+val ndimtest = 2
+val dCdYtest = DenseMatrix.zeros[Double](ntest, ntest)
 
 val PQtestmat =  DenseMatrix(PQtest.map(row => DenseVector(row)): _*)
 val Ytestmat = DenseMatrix(Ytest.map(row => DenseVector(row)): _*)
-val numtestmat DenseMatrix(calculatePairwiseDistances(Ytest, Ytest).map(row => DenseVector(row)): _*)
-val denom_numtestmat = (1.0/ (1 + scala.math.pow(calculatePairwiseDistances(Ytest)(i)(j), 2)))
+val numtestmat = DenseMatrix(numtest.map(row => DenseVector(row)): _*)
 
 
-val testdiff = PQtestmat(::,0).t * (Ytestmat(::,0) - Ytestmat(::,1))
+val testdiff = PQtestmat(::,0) *:* (Ytestmat(::,0) - Ytestmat(::,1))
+val testdiff2 = tile(PQtestmat(::, 1) *:* numtestmat(::, 1), 1, ndimtest).t.cols
+val dimtestdiff2 = tile(PQtestmat(::, 1) *:* numtestmat(::, 1), 1, ndimtest).t.rows
+val testrow = Ytestmat(0,::)
+val testdiff3 = stackVector(Ytestmat(0,::).t, ntest) - Ytestmat
+
 
 for (i <- 0 until ntest) {
-  dCdYtest(i, ::) := sum(tile(PQtestmat(::, i) * denom_numtestmat(::, i)  , 1, ntest).t * (Ytestmat(i, ::) - Ytestmat), Axis._0))
+  dCdYtest(i, ::) := sum(tile(PQtestmat(::, 1) *:* numtestmat(::, 1), 1, ndimtest) *:* (stackVector(Ytestmat(i,::).t, ntest) - Ytestmat), Axis._0)
 }
 
 /*
