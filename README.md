@@ -10,6 +10,8 @@ Parallel Barnes-Hut t-SNE implementation using Scala and Apache Spark.
 ## Build
 SBT with .jar compiling to be fed into Google Dataproc.
 
+For Mac follow: https://www.google.com/search?q=scala+spark+set+up+mac+m1+intellij&oq=scala+spark+set+up+mac+m1+intel&aqs=chrome.1.69i57j33i160.13532j0j7&sourceid=chrome&ie=UTF-8#fpstate=ive&vld=cid:93ee5e01,vid:ugFBalvTEcE
+
 ## Notes
 - Spark only compatible with certain Java JDKs, 11 is supported and seems to work
 - SBT: libraryDependencies need to go into the root.settings() codeblock
