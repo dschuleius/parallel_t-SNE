@@ -35,23 +35,6 @@ def euclideanDistance(point1: Array[Double], point2: Array[Double]): Double = {
   Math.sqrt(squaredDistance)
 }
 
-/*
-// COPIED FROM https://groups.google.com/g/scala-breeze/c/fMsAQvHFkMs
-def covMatrixCalc(A:DenseMatrix[Double]):DenseMatrix[Double] = {
-  val n = A.cols
-  val D:DenseMatrix[Double] = A.copy
-  val mu:DenseVector[Double] = sum(D, Axis._1) *:* (1.0/n) // sum along rows --> col vector
-  (0 until n).map(i => D(::,i) :-= mu)
-  val C = (D*D.t) *:* (1.0/(n-1))
-  // make exactly symmetric
-  (C+C.t) *:* 0.5
-}
-
-// testing covMatrixCalc
-val covTestMatrix: DenseMatrix[Double] = DenseMatrix((2.0, 20.0, 300.0), (1.0, 19.0, 301.0), (3.0, 25.0, 299.0))
-println(covMatrixCalc(covTestMatrix))
-// checked with R output, works well!
-*/
 
 // sortColumns and subtractVectorFromMatrix helper functions for PCA function
 def sortColumns(matrix: DenseMatrix[Double], vector: DenseVector[Double]): DenseMatrix[Double] = {
@@ -65,6 +48,9 @@ def sortColumns(matrix: DenseMatrix[Double], vector: DenseVector[Double]): Dense
   sortedMatrix
 }
 
+
+
+
 // testing sortColumns
 // DenseMatrix constructor takes in Lists as rows!!
 val B: DenseMatrix[Double] = DenseMatrix((1.1, 20.1, 311.1), (1.0, 20.1, 300.11), (1.0, 20.0, 303.0))
@@ -72,15 +58,10 @@ val Bvec: DenseVector[Double] = DenseVector(-1, 10, 200)
 println(sortColumns(B, Bvec))
 // seems to work well
 
-// subtracts a DenseVector from every column of a DenseMatrix
+
+// subtracts a DenseVector from every column of a DenseMatrix: Functional Programming Style
 def subtractVectorFromMatrix(mat: DenseMatrix[Double], vec: DenseVector[Double]): DenseMatrix[Double] = {
-  val n = mat.rows
-  val p = mat.cols
-  val result = DenseMatrix.zeros[Double](n, p)
-  for (i <- 0 until n; j <- 0 until p) {
-    result(i, j) = mat(i, j) - vec(j)
-  }
-  result
+  mat(*, ::).map(row => (row - vec))
 }
 
 // testing subtractVectorFromMatrix
@@ -105,6 +86,7 @@ println(result)
 
 
 
+
 def calculatePairwiseDistances(points: Array[Array[Double]]): Array[Array[Double]] = {
   // initialize the distance matrix
   val distances = Array.ofDim[Double](points.length, points.length)
@@ -125,11 +107,26 @@ def calculatePairwiseDistances(points: Array[Array[Double]]): Array[Array[Double
 }
 
 
+/*
+// rewrite calculatePairwiseDistances into functional programming style
+def calculatePairwiseDistancesFP(points: DenseMatrix[Double]): DenseMatrix[Double] = {
+  val n = points.rows
+  val indices = 0 until n
+  val dist = DenseMatrix.tabulate[Double](n, n){ case (i, j) =>
+    if (i < j) 5.0 //euclideanDistance(points(i, ::).t.toArray, points(j, ::).t.toArray)
+  }
+  dist
+}
+*/
+
+
 // testing of calculatePairwiseDistances function
-val X = Array(Array(1, 1.5, 1.8), Array(8, 9, 8.2), Array(15, 14, 3.1))
+val X: Array[Array[Double]] = Array(Array(1.2, 3.4, 10.2), Array(10.4, 22.3, 4.2))
 println(euclideanDistance(point1 = Array(1, 1.2, 2), point2 = Array(10, 11, 12)))
 println(calculatePairwiseDistances(X)(0)(1))
 // works as intended, checked with Python
+
+
 
 // computeSimilarityScoresGauss calculates SimilarityScores for the high-dim. representation of the data
 // only implemented with CONSTANT SIGMA so far
@@ -160,10 +157,10 @@ def computeSimilarityScoresGauss(distances: Array[Array[Double]], sigma: Double)
   normSimilarities
 }
 
-
-
 // testing of computeSimilarityScoreGauss function
 println(computeSimilarityScoresGauss(distances = calculatePairwiseDistances(MNISTdata), sigma = 1)(5)(4))
+
+
 
 // computeSimilarityScoresT calculates SimilarityScores for low-dim. representation of the data (after PCA)
 // returns a tuple consisting of the multi-dim. Array with all SimilarityScores and a multi-dim. Array "num"
@@ -194,14 +191,6 @@ def computeSimilarityScoresT(distances: Array[Array[Double]]): (Array[Array[Doub
   }
   (normSimilarities, num)
 }
-
-
-
-// to transform Array of Arrays into DenseMatrix: use DenseMatrix(ArrayOfArrays: _*)
-val XDense = DenseMatrix(X: _*)
-val Xmean = mean(XDense(*, ::))
-println(Xmean)
-
 
 
 
@@ -257,8 +246,10 @@ println(computeSimilarityScoresT(distances = calculatePairwiseDistances(pcaMNIST
 // seems to work as well
 
 
-// optimization using GD, make SimilarityScore matrices P (high-dim) and Q (low-dim) as similar as possible.
+
+// optimization using GD, making SimilarityScore matrices P (high-dim) and Q (low-dim) as similar as possible.
 // we use the gradient etc. described in the "Symmetric SNE" section of the original paper.
+// !! SCOPING OF VARS STILL WRONG: IN EVERY ITERATION, Y IS BEING OVERWRITTEN !!
 def optimizer(X: Array[Array[Double]],
               P: Array[Array[Double]],
               Q: Array[Array[Double]],
