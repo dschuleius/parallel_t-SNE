@@ -256,50 +256,72 @@ val pcaMNISTdata: Array[Array[Double]] = pca(MNISTdata, k = 2)
 println(computeSimilarityScoresT(distances = calculatePairwiseDistances(pcaMNISTdata))._1(0)(1))
 // seems to work as well
 
-/*
+
 // optimization using GD, make SimilarityScore matrices P (high-dim) and Q (low-dim) as similar as possible.
 // we use the gradient etc. described in the "Symmetric SNE" section of the original paper.
-def optimizer(Y:Array[Array[Double]],
-              P:Array[Array[Double]],
-              Q:Array[Array[Double]],
-              max_iter:Int = 1000,
-              initial_momentum:Double = 0.5,
-              final_momentum:Double = 0.8,
-              lr:Double = 500): Array[Array[Double]] = {
+def optimizer(X: Array[Array[Double]],
+              P: Array[Array[Double]],
+              Q: Array[Array[Double]],
+              num: Array[Array[Double]],
+              k: Int = 2,
+              max_iter: Int = 1000,
+              initial_momentum: Double = 0.5,
+              final_momentum: Double = 0.8,
+              min_gain: Double = 0.01,
+              lr: Double = 500):
+DenseMatrix[Double] = {
+
   assert(P.length == Q.length, "SimilarityScore multi-dim. Arrays must have the same number of rows.")
   assert(P(0).length == Q(0).length, "SimilarityScore multi-dim. Arrays must have the same number of columns.")
   assert(P.length == P(0).length && Q.length == Q(0).length, "SimilarityScore multi-dim. Arrays must be symmetric.")
 
+  // initialize variables
   val n = P.length
-  val dCdy = DenseMatrix[Double](n, n)
-  val iY = DenseMatrix[Double](n, n)
+  val dCdY = DenseMatrix.zeros[Double](n, k)
+  val iY = DenseMatrix.zeros[Double](n, k)
+  val gains = DenseMatrix.ones[Double](n, k)
+  val Ymat = DenseMatrix.zeros[Double](n, k)
+
+  val PQmat = DenseMatrix((P - Q).map(row => DenseVector(row)): _*)
+  val nummat = DenseMatrix(num.map(row => DenseVector(row)): _*)
+
   for (iter <- 0 until max_iter) {
 
     // compute SimilarityScores in low dim:
+    val Y: Array[Array[Double]] = computeSimilarityScoresT(distances = calculatePairwiseDistances(pca(X, k = k)))._1
+    val Ymat: DenseMatrix[Double] = DenseMatrix(Y.map(row => DenseVector(row)): _*)
 
-
-
-    val PQ: Array[Array[Double]] = P - Q
-
-    // compute gradient: insert into every row of multi-dim. Array dCdy 4*sum_j(p_ij - q_ij)(y_i - y_j).
+    // compute gradient: insert into every row of dCdy 4*sum_j(p_ij - q_ij)(y_i - y_j) * (1 + L2)^-1
+    // see equation (5) in the original paper: https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf
     // y points are points in the low-dim space that are moved into clusters by the optimization.
-    (0 until n).foreach { i =>
-      dCdY(i) = (for (j <- 0 until n) yield PQ(j) * (Y(i) - Y(j))).sum
+    for (i <- 0 until n) {
+      dCdY(i, ::) := sum(tile(PQmat(::, 1) *:* nummat(::, 1), 1, k) *:* (stackVector(Ymat(i, ::).t, n) - Ymat), Axis._0)
     }
+
     // Perform GD update
-    if (iter < 20) {
-      val momentum = initial_momentum
-    } else {
-      val momentum = final_momentum
+    val momentum = if (iter <= 20) initial_momentum else final_momentum
+    gains.foreachPair {
+      case ((i, j), old_gain) =>
+        val new_gain = math.max(min_gain,
+          if ((dCdY(i, j) > 0.0) != (iY(i, j) > 0.0))
+            old_gain + 0.2
+          else
+            old_gain * 0.8
+        )
+        gains.update(i, j, new_gain)
+
+        val new_iY = momentum * iY(i, j) - lr * new_gain * dCdY(i, j)
+        iY.update(i, j, new_iY)
+
+        Ymat.update(i, j, Ymat(i, j) + new_iY) // Y += iY
     }
-    val iY = momentum * iY - lr * dCdy
-    val Y = Y + iY
   }
-  Y
+  Ymat
 }
-*/
+
 
 // testing optimizer function
+/*
 val Ptest = computeSimilarityScoresGauss(distances = calculatePairwiseDistances(MNISTdata), sigma = 1)
 println(Ptest.length, Ptest(0).length)
 val Qtest = computeSimilarityScoresT(distances = calculatePairwiseDistances(MNISTdata))._1
@@ -308,7 +330,7 @@ val Ytest = pcaMNISTdata
 val numtest = computeSimilarityScoresT(distances = calculatePairwiseDistances(MNISTdata))._2
 val ntest = Qtest.length
 val ndimtest = 2
-val dCdYtest = DenseMatrix.zeros[Double](ntest, ntest)
+val dCdYtest = DenseMatrix.zeros[Double](ntest, ndimtest)
 
 val PQtestmat =  DenseMatrix(PQtest.map(row => DenseVector(row)): _*)
 val Ytestmat = DenseMatrix(Ytest.map(row => DenseVector(row)): _*)
@@ -320,12 +342,13 @@ val testdiff2 = tile(PQtestmat(::, 1) *:* numtestmat(::, 1), 1, ndimtest).t.cols
 val dimtestdiff2 = tile(PQtestmat(::, 1) *:* numtestmat(::, 1), 1, ndimtest).t.rows
 val testrow = Ytestmat(0,::)
 val testdiff3 = stackVector(Ytestmat(0,::).t, ntest) - Ytestmat
-
+val testdiffres = sum(tile(PQtestmat(::, 1) *:* numtestmat(::, 1), 1, ndimtest) *:* (stackVector(Ytestmat(1,::).t, ntest) - Ytestmat), Axis._0)
 
 for (i <- 0 until ntest) {
   dCdYtest(i, ::) := sum(tile(PQtestmat(::, 1) *:* numtestmat(::, 1), 1, ndimtest) *:* (stackVector(Ytestmat(i,::).t, ntest) - Ytestmat), Axis._0)
 }
 
+println(dCdYtest)
 /*
 val testsum = for (j <- 0 until ntest) yield PQtest(j) * (Ytest(1) - Ytest(j))
 println(testsum)
