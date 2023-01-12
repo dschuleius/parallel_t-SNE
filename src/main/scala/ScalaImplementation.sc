@@ -152,19 +152,23 @@ def computeSimilarityScoresGauss(distances: Array[Array[Double]], sigma: Double)
 // testing of computeSimilarityScoreGauss function
 println(computeSimilarityScoresGauss(distances = calculatePairwiseDistances(MNISTdata), sigma = 1)(5)(4))
 
-//computeSimilarityScoresT calculates SimilarityScores for low-dim. representation of the data (after PCA)
-def computeSimilarityScoresT(distances: Array[Array[Double]]): Array[Array[Double]] = {
+// computeSimilarityScoresT calculates SimilarityScores for low-dim. representation of the data (after PCA)
+// returns a tuple consisting of the multi-dim. Array with all SimilarityScores and a multi-dim. Array "num"
+// that is needed for the gradient calculation and handy to have
+def computeSimilarityScoresT(distances: Array[Array[Double]]): (Array[Array[Double]], Array[Array[Double]]) = {
   // check that distance matrix is symmetric, i.e. n x n, otherwise throw error
   assert(distances.length == distances(0).length, "Distance-Matrix is not symmetric.")
   val n = distances.length
   val unnormSimilarities = Array.ofDim[Double](n, n)
+  val num = Array.ofDim[Double](n, n)
   val normSimilarities = Array.ofDim[Double](n, n)
   for (i <- 0 until n) {
     for (j <- 0 until n) {
       // use yield to obtain "buffered for-loop" that returns all collection of all yielded values.
+      num(i)(j) = (1.0/ (1 + scala.math.pow(distances(i)(j), 2)))
       unnormSimilarities(i)(j) = {
-        (math.exp(-1 * scala.math.pow(distances(i)(j), 2) )) /
-          (for (k <- 0 until n if k != i) yield math.exp(-1 * scala.math.pow(distances(i)(k), 2))).sum
+        num(i)(j) /
+          1.0 / (for (k <- 0 until n if k != i) yield 1 + scala.math.pow(distances(i)(k), 2)).sum
       }
     }
   }
@@ -175,7 +179,7 @@ def computeSimilarityScoresT(distances: Array[Array[Double]]): Array[Array[Doubl
       normSimilarities(i)(j) = (unnormSimilarities(i)(j) + unnormSimilarities(j)(i)) / (2 * n)
     }
   }
-  normSimilarities
+  (normSimilarities, num)
 }
 
 
@@ -236,13 +240,14 @@ val pcaMNISTdata: Array[Array[Double]] = pca(MNISTdata, k = 2)
 // result is correct but sign of 2nd principal comp. score is switched
 // no problem though, see
 // https://stats.stackexchange.com/questions/30348/is-it-acceptable-to-reverse-a-sign-of-a-principal-component-score
-println(computeSimilarityScoresT(distances = calculatePairwiseDistances(pcaMNISTdata))(0)(1))
+println(computeSimilarityScoresT(distances = calculatePairwiseDistances(pcaMNISTdata))._1(0)(1))
 // seems to work as well
 
-
+/*
 // optimization using GD, make SimilarityScore matrices P (high-dim) and Q (low-dim) as similar as possible.
 // we use the gradient etc. described in the "Symmetric SNE" section of the original paper.
-def optimizer(P:Array[Array[Double]],
+def optimizer(Y:Array[Array[Double]],
+              P:Array[Array[Double]],
               Q:Array[Array[Double]],
               max_iter:Int = 1000,
               initial_momentum:Double = 0.5,
@@ -253,18 +258,21 @@ def optimizer(P:Array[Array[Double]],
   assert(P.length == P(0).length && Q.length == Q(0).length, "SimilarityScore multi-dim. Arrays must be symmetric.")
 
   val n = P.length
-  val dCdy = Array.ofDim[Double](Q.length, Q(0).length)
-  val iY = Array.ofDim[Double](Q.length, Q(0).length)
-  val Y = pca(MNISTdata, k = 2) // CONVERT INTO PARAM FOR FUNCTION
+  val dCdy = DenseMatrix[Double](n, n)
+  val iY = DenseMatrix[Double](n, n)
   for (iter <- 0 until max_iter) {
+
+    // compute SimilarityScores in low dim:
+
+
+
     val PQ: Array[Array[Double]] = P - Q
 
     // compute gradient: insert into every row of multi-dim. Array dCdy 4*sum_j(p_ij - q_ij)(y_i - y_j).
     // y points are points in the low-dim space that are moved into clusters by the optimization.
     (0 until n).foreach { i =>
-      dCdy(i) = (for (j <- 0 until n) yield (P(i)(j)-Q(i)(j)) * (Y(i) - Y(j))).sum
+      dCdY(i) = (for (j <- 0 until n) yield PQ(j) * (Y(i) - Y(j))).sum
     }
-
     // Perform GD update
     if (iter < 20) {
       val momentum = initial_momentum
@@ -276,4 +284,36 @@ def optimizer(P:Array[Array[Double]],
   }
   Y
 }
+*/
 
+// testing optimizer function
+val Ptest = computeSimilarityScoresGauss(distances = calculatePairwiseDistances(MNISTdata), sigma = 1)
+println(Ptest.length, Ptest(0).length)
+val Qtest = computeSimilarityScoresT(distances = calculatePairwiseDistances(MNISTdata))
+val PQtest = Ptest-Qtest
+val Ytest = pcaMNISTdata
+val ntest = Qtest.length
+val dCdYtest = DenseMatrix.zeros(ntest, ntest)
+
+val PQtestmat =  DenseMatrix(PQtest.map(row => DenseVector(row)): _*)
+val Ytestmat = DenseMatrix(Ytest.map(row => DenseVector(row)): _*)
+val numtestmat DenseMatrix(calculatePairwiseDistances(Ytest, Ytest).map(row => DenseVector(row)): _*)
+val denom_numtestmat = (1.0/ (1 + scala.math.pow(calculatePairwiseDistances(Ytest)(i)(j), 2)))
+
+
+val testdiff = PQtestmat(::,0).t * (Ytestmat(::,0) - Ytestmat(::,1))
+
+for (i <- 0 until ntest) {
+  dCdYtest(i, ::) := sum(tile(PQtestmat(::, i) * denom_numtestmat(::, i)  , 1, ntest).t * (Ytestmat(i, ::) - Ytestmat), Axis._0))
+}
+
+/*
+val testsum = for (j <- 0 until ntest) yield PQtest(j) * (Ytest(1) - Ytest(j))
+println(testsum)
+
+val dCdYtest = Array.ofDim[Double](Qtest.length, Qtest(0).length)
+dCdYtest.zipWithIndex.map{ case (row, index) => (for (j <- 0 until ntest) yield PQtest(j) * (Ytest(index) - Ytest(j))).sum}
+
+(0 until ntest).foreach { i => dCdYtest(i) = for (j <- 0 until ntest) yield PQtest(j) * (Ytest(i) - Ytest(j)))}
+ */
+println(dCdYtest)
