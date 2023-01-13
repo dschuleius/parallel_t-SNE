@@ -113,7 +113,11 @@ def calculatePairwiseDistancesFP(points: DenseMatrix[Double]): DenseMatrix[Doubl
   val n = points.rows
   val indices = 0 until n
   val dist = DenseMatrix.tabulate[Double](n, n){ case (i, j) =>
-    if (i < j) 5.0 //euclideanDistance(points(i, ::).t.toArray, points(j, ::).t.toArray)
+    if (i < j) {
+      euclideanDistance(points(i, ::).t.toArray, points(j, ::).t.toArray)
+    } else if {
+      0.0
+    }
   }
   dist
 }
@@ -122,8 +126,10 @@ def calculatePairwiseDistancesFP(points: DenseMatrix[Double]): DenseMatrix[Doubl
 
 // testing of calculatePairwiseDistances function
 val X: Array[Array[Double]] = Array(Array(1.2, 3.4, 10.2), Array(10.4, 22.3, 4.2))
+val XPDmat: DenseMatrix[Double] = DenseMatrix((1.2, 3.4, 10.2),(10.4, 22.3, 4.2))
 println(euclideanDistance(point1 = Array(1, 1.2, 2), point2 = Array(10, 11, 12)))
 println(calculatePairwiseDistances(X)(0)(1))
+// println(calculatePairwiseDistancesFP(XPDmat))
 // works as intended, checked with Python
 
 

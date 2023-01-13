@@ -1,9 +1,23 @@
 # Project News
+- This is the file in saurfang's repo where he initializes his complete t-SNE function in Spark:
+   - spark-tsne/spark-tsne-examples/src/main/scala/com/github/saurfang/spark/tsne/examples/MNIST.scala
+
+- On virtuale, the KMeans example of the project exam is worth looking at for how to run stuff in Scala.
+  - This is also the way we have to transform the code I have implemented so far.
+
+- For the Spark implementation, I think it's best to use the `RDD`-based `RowMatrix` data type.
+  - The LinAlg for manipulating RowMatrices is provided by Breeze, so that most of our functions should work.
+  - However, we need to adapt the functions so that they operate 
+  - https://spark.apache.org/docs/3.3.1/mllib-data-types.html
+    - PCA using Sparks MLLib: https://spark.apache.org/docs/3.3.1/mllib-dimensionality-reduction.html#principal-component-analysis-pca
+
+
+
 - I'd say Perplexity calculation won't be part of the "just" Scala implementation, because it involves grid search and is complicated to implement. 
    - For the Spark Implementation, we could use the X2P function from saurfang's t-SNE Spark implementation.
  
 
-
+   
 # parallel_t-SNE
 Parallel Barnes-Hut t-SNE implementation using Scala and Apache Spark.
 
