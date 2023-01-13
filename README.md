@@ -7,10 +7,11 @@
 
 - For the Spark implementation, I think it's best to use the `RDD`-based `RowMatrix` data type.
   - The LinAlg for manipulating RowMatrices is provided by Breeze, so that most of our functions should work.
-  - However, we need to adapt the functions so that they operate 
+  - However, we need to adapt the functions so that they operate on `RDD`s. Maybe we can paralellize our Array[Array[Double]] to transform it into a `RDD`.
   - https://spark.apache.org/docs/3.3.1/mllib-data-types.html
     - PCA using Sparks MLLib: https://spark.apache.org/docs/3.3.1/mllib-dimensionality-reduction.html#principal-component-analysis-pca
-
+    - Playlist with lots of good Spark explanations: https://www.youtube.com/playlist?list=PLlL9SaZVnVgizWn2Gr_ssHExaQUYik2vp
+    - Video where it is shown how to create a Spark Context and a RDD in Spark 2.x: https://www.youtube.com/playlist?list=PLlL9SaZVnVgizWn2Gr_ssHExaQUYik2vp
 
 
 - I'd say Perplexity calculation won't be part of the "just" Scala implementation, because it involves grid search and is complicated to implement. 
