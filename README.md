@@ -1,4 +1,6 @@
 # Project News
+- https://spark.apache.org/docs/latest/rdd-programming-guide.html
+
 - This is the file in saurfang's repo where he initializes his complete t-SNE function in Spark:
    - spark-tsne/spark-tsne-examples/src/main/scala/com/github/saurfang/spark/tsne/examples/MNIST.scala
 
