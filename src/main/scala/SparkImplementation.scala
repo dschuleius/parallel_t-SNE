@@ -13,7 +13,7 @@ import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.linalg.distributed.RowMatrix
 import org.apache.spark.rdd.RDD
 
-object SparkImplementation extends App{
+object SparkImplementation extends App {
 
   // set up Spark, changing to local host.
   val conf = new SparkConf()
@@ -70,11 +70,16 @@ object SparkImplementation extends App{
       ((i, j), math.exp(-1 * scala.math.pow(d, 2) / (2 * scala.math.pow(sigma, 2))))
     }
 
+    // problem: RDD transformation invoked inside of other transformation: not allowed!!
     val denominators = unnormSimilarities.map { case ((i, _), _) => i }.distinct().map { i =>
       (i, unnormSimilarities.filter { case ((k, _), _) => k != i }.map { case (_, d) =>
         math.exp(-1 * scala.math.pow(d, 2) / (2 * scala.math.pow(sigma, 2)))
-      }.sum())}.map { case (ind, sim) => ((ind, 0), sim)}
+      }.sum())
+    }.map { case (ind, sim) => ((ind, 0), sim) }
 
+    denominators
+
+    /*
     val unnormSimilaritiesWithDenominator = unnormSimilarities.join(denominators).map { case ((i, j), (unnorm, denominator)) =>
       ((i, j), unnorm / denominator) }
 
@@ -83,8 +88,17 @@ object SparkImplementation extends App{
     }
     normSimilarities
   }
+     */
 
+
+
+  }
 
   // testing computeSimilarityScoreGauss
   computeSimilarityScoresGauss(pairwiseDistances(MNISTdata), sigma = 1).take(10).foreach(println)
+
+
+
+
+
 }
