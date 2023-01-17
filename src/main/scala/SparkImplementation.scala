@@ -4,6 +4,7 @@
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.apache.spark.mllib._
+import org.apache.spark.storage.StorageLevel
 
 import scala.io.Source
 import breeze.linalg._
@@ -12,35 +13,26 @@ import org.apache.spark.mllib.linalg.distributed.RowMatrix
 import org.apache.spark.rdd.RDD
 
 object SparkImplementation extends App{
-  /*
-  val spark = SparkSession.builder()
-    .master("local[1]")
-    .appName("parallel_t-SNE")
-    .config("spark.driver.host", "127.0.0.1")
-    .config("spark.driver.bindAddress", "127.0.0.1")
-*/
 
   val conf = new SparkConf().setAppName("distributed_t-SNE").setMaster("local[1]").set("spark.driver.host", "127.0.0.1").set("spark.driver.bindAddress", "127.0.0.1")
   val sc = new SparkContext(conf)
 
+  def importData(fileName: String, sampleSize: Int): Array[Array[Double]] = {
+    // Read the file and split it into lines
+    val lines = Source.fromFile(fileName).getLines.take(sampleSize).toArray
 
-  val dataset = sc.textFile("data/mnist.csv.gz")
-    .zipWithIndex()
-    .filter(_._2 < 6000)
-    .sortBy(_._2, true, 60)
-    .map(_._1)
-    .map(_.split(","))
-    .map(x => (x.head.toInt, x.tail.map(_.toDouble)))
-    .cache()
+    // Split each line into fields and convert the fields to doubles
+    // trim removes leading and trailing blank space from each field
+    val data = lines.map(_.trim.split("\\s+").map(_.toDouble))
 
-  val data = dataset.flatMap(_._2)
-  val mean = data.mean()
-  val std = data.stdev()
-  val scaledData = dataset.map(x => Vectors.dense(x._2.map(v => (v - mean) / std))).cache()
+    // Return the data as an array of arrays of doubles
+    data
+  }
 
-  val labels = dataset.map(_._1).collect()
-  val matrix = new RowMatrix(scaledData)
-  val pcaMatrix = matrix.multiply(matrix.computePrincipalComponents(50))
-  pcaMatrix.rows.cache()
+  // calling sc.parallelize to create 2 RDDs from textfile.
+  // relative path does not work, probably problem with SBT folder structure
+  val MNISTlabels = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt", 10))
+  val MNISTdata = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", 10))
+  MNISTdata.take(10).foreach(println)
 
 }
