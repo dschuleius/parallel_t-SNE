@@ -201,9 +201,9 @@ object SparkImplementation extends App {
 
   // GD optimization is inherently sequential, hence we use a DenseMatrix collection to handle the data.
   def tSNEsimple(X: RDD[Array[Double]],
-                 P: RDD[Array[Double]],
-                 Q: RDD[Array[Double]],
-                 num: RDD[Array[Double]],
+                 P: RDD[((Int, Int), Double)],
+                 Q: RDD[((Int, Int), Double)],
+                 num: RDD[((Int, Int), Double)],
                  k: Int = 2,
                  max_iter: Int = 1000,
                  initial_momentum: Double = 0.5,
@@ -238,7 +238,7 @@ object SparkImplementation extends App {
       // see equation (5) in the original paper: https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf
       // y points are points in the low-dim space that are moved into clusters by the optimization.
       for (i <- 0 until n) {
-        dCdY(i, ::) := sum(tile(PQmat(::, i) *:* nummat(::, i), 1, k).t *:* (stackVector(Ymat(i, ::), n) - Ymat ), Axis._0)
+        dCdY(i, ::) := sum(tile(PQmat(::, i) *:* nummat(::, i), 1, k).t *:* (stackVector(Ymat(i, ::), n) - Ymat), Axis._0)
       }
 
       // Perform GD update

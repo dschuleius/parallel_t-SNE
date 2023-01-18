@@ -292,7 +292,7 @@ DenseMatrix[Double] = {
     // see equation (5) in the original paper: https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf
     // y points are points in the low-dim space that are moved into clusters by the optimization.
     for (i <- 0 until n) {
-      dCdY(i, ::) := sum(tile(PQmat(::, 1) *:* nummat(::, 1), 1, k) *:* (stackVector(Ymat(i, ::).t, n) - Ymat), Axis._0)
+      dCdY(i, ::) := sum(tile(PQmat(::, i) *:* nummat(::, i), 1, k) *:* (stackVector(Ymat(i, ::).t, n) - Ymat), Axis._0)
     }
 
     // Perform GD update
