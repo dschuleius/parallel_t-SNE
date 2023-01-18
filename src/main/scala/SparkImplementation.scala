@@ -63,6 +63,7 @@ object SparkImplementation extends App {
 
   pairwiseDistances(MNISTdata).take(5).foreach(println)
 
+  // !! still to do: perplexity calculation instead of constant sigma !!
   def computeSimilarityScoresGauss(distances: RDD[((Int, Int), Double)], sigma: Double): RDD[((Int, Int), Double)] = {
 
     val n = distances.count().toInt
@@ -91,6 +92,34 @@ object SparkImplementation extends App {
 
   // testing computeSimilarityScoreGauss
   computeSimilarityScoresGauss(pairwiseDistances(MNISTdata), sigma = 1).take(10).foreach(println)
+
+  // returns a tuple of 2 RDDs, "num" containing the numerator values, which are later needed for the gradient
+  // computation, "normSimilarities" containing the Similarity Scores in the low-dim. representation.
+  def computeSimilarityScoresT(distances: RDD[((Int, Int), Double)]): (RDD[((Int, Int), Double)], RDD[((Int, Int), Double)]) = {
+
+    val n = distances.count().toInt
+    val num = distances.map { case ((i, j), d) =>
+      ((i, j), (1.0 / (1 + scala.math.pow(d, 2))))
+    }
+
+    val denominators = num.filter { case ((i, k), _) => i != k }.map { case ((i, j), d) =>
+      ((i, j), (1.0 / 1.0 + scala.math.pow(d, 2)))
+    }.reduceByKey(_ + _)
+
+    val unnormSimilaritiesWithDenominator = num.join(denominators).map { case ((i, j), (unnorm, denominator)) =>
+      ((i, j), unnorm / denominator)
+    }
+
+    val flippedUnnormSimWithDenom = unnormSimilaritiesWithDenominator.map(x => (x._1.swap, x._2))
+    val joinedUnnormSimWithDenom = unnormSimilaritiesWithDenominator.join(flippedUnnormSimWithDenom)
+    val normSimilarities = joinedUnnormSimWithDenom.mapValues { case (s1, s2) => (s1 + s2) / (2 * n) }
+
+
+    (normSimilarities, num)
+  }
+
+  // testing computeSimilarityScoresT
+  computeSimilarityScoresT(pairwiseDistances(MNISTdata))._1.take(10).foreach(println)
 
 
 }
