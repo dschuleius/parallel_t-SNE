@@ -71,34 +71,26 @@ object SparkImplementation extends App {
     }
 
     // problem: RDD transformation invoked inside of other transformation: not allowed!!
-    val denominators = unnormSimilarities.map { case ((i, _), _) => i }.distinct().map { i =>
-      (i, unnormSimilarities.filter { case ((k, _), _) => k != i }.map { case (_, d) =>
-        math.exp(-1 * scala.math.pow(d, 2) / (2 * scala.math.pow(sigma, 2)))
-      }.sum())
-    }.map { case (ind, sim) => ((ind, 0), sim) }
+    //val denominators = unnormSimilarities.map { case ((i, _), _) => i }.distinct() //.map { i => (i,
 
-    denominators
+    val denominators = unnormSimilarities.filter { case ((i, k), _) => i != k }.map { case ((i, j), d) =>
+      ((i, j), math.exp(-1 * scala.math.pow(d, 2) / (2 * scala.math.pow(sigma, 2))))}.reduceByKey(_ + _)
 
-    /*
     val unnormSimilaritiesWithDenominator = unnormSimilarities.join(denominators).map { case ((i, j), (unnorm, denominator)) =>
       ((i, j), unnorm / denominator) }
 
-    val normSimilarities = unnormSimilaritiesWithDenominator.map { case ((i, j), s) =>
-      ((i, j), (s + unnormSimilaritiesWithDenominator.lookup((j, i)).head) / (2 * n))
-    }
+    val flippedUnnormSimWithDenom = unnormSimilaritiesWithDenominator.map(x => (x._1.swap, x._2))
+    val joinedUnnormSimWithDenom = unnormSimilaritiesWithDenominator.join(flippedUnnormSimWithDenom)
+    val normSimilarities = joinedUnnormSimWithDenom.mapValues { case (s1, s2) => (s1 + s2) / (2 * n) }
+
+
     normSimilarities
-  }
-     */
+    }
 
 
-
-  }
 
   // testing computeSimilarityScoreGauss
   computeSimilarityScoresGauss(pairwiseDistances(MNISTdata), sigma = 1).take(10).foreach(println)
-
-
-
 
 
 }
