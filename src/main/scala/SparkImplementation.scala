@@ -122,6 +122,7 @@ object SparkImplementation extends App {
   computeSimilarityScoresT(pairwiseDistances(MNISTdata))._1.take(10).foreach(println)
 
 
+  /*
   def sortColumns(matrix: DenseMatrix[Double], vector: DenseVector[Double]): DenseMatrix[Double] = {
     // sort Array in descending order
     val sortedVector = vector.toArray.sortWith(_ > _)
@@ -135,7 +136,7 @@ object SparkImplementation extends App {
 
 
   // stick to builtin PCA function, this is just backup
-  /*
+
   def initialPCA(data: RDD[Array[Double]], k: Int = 2): RDD[Array[Double]] = {
     // assert non-empty RDD and no empty rows
 
@@ -192,6 +193,74 @@ object SparkImplementation extends App {
   mlPCA(MNISTdata).foreach(arr => println(arr.mkString(",")))
 
 
+  def stackVector(vector: DenseVector[Double], n: Int): DenseMatrix[Double] = {
+    DenseMatrix.tabulate[Double](n, vector.size)((i, j) => vector(j))
+  }
+
+
+
+  // GD optimization is inherently sequential, hence we use a DenseMatrix collection to handle the data.
+  def tSNEsimple(X: RDD[Array[Double]],
+                 P: RDD[Array[Double]],
+                 Q: RDD[Array[Double]],
+                 num: RDD[Array[Double]],
+                 k: Int = 2,
+                 max_iter: Int = 1000,
+                 initial_momentum: Double = 0.5,
+                 final_momentum: Double = 0.8,
+                 min_gain: Double = 0.01,
+                 lr: Double = 500):
+  DenseMatrix[Double] = {
+
+    assert(P.count() == Q.count(), "SimilarityScore multi-dim. Arrays must have the same number of rows.")
+    assert(P.first().length == Q.first().length, "SimilarityScore multi-dim. Arrays must have the same number of columns.")
+    assert(P.count() == P.first().length && Q.count() == Q(0).length, "SimilarityScore multi-dim. Arrays must be symmetric.")
+
+    // initialize variables
+    val n: Int = P.count().toInt
+    val dCdY = DenseMatrix.zeros[Double](n, k)
+    val iY = DenseMatrix.zeros[Double](n, k)
+    val gains = DenseMatrix.ones[Double](n, k)
+    val Ymat = DenseMatrix.zeros[Double](n, k)
+
+    val Pmat = new DenseMatrix[Double](P.count().toInt, P.first().length, P.collect().flatten)
+    val Qmat = new DenseMatrix[Double](Q.count().toInt, Q.first().length, Q.collect().flatten)
+    val nummat = new DenseMatrix[Double](num.count().toInt, num.first().length, num.collect().flatten)
+
+    val PQmat = Pmat - Qmat
+
+    for (iter <- 0 until max_iter) {
+
+      // compute SimilarityScores in low dim:
+      val Ymat: new DenseMatrix[Double](k, mlPCA(X).first().length, mlPCA(X).collect().flatten)
+
+      // compute gradient: insert into every row of dCdy 4*sum_j(p_ij - q_ij)(y_i - y_j) * (1 + L2)^-1
+      // see equation (5) in the original paper: https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf
+      // y points are points in the low-dim space that are moved into clusters by the optimization.
+      for (i <- 0 until n) {
+        dCdY(i, ::) := sum(tile(PQmat(::, i) *:* nummat(::, i), 1, k).t *:* (stackVector(Ymat(i, ::), n) - Ymat ), Axis._0)
+      }
+
+      // Perform GD update
+      val momentum = if (iter <= 20) initial_momentum else final_momentum
+      gains.foreachPair {
+        case ((i, j), old_gain) =>
+          val new_gain = math.max(min_gain,
+            if ((dCdY(i, j) > 0.0) != (iY(i, j) > 0.0))
+              old_gain + 0.2
+            else
+              old_gain * 0.8
+          )
+          gains.update(i, j, new_gain)
+
+          val new_iY = momentum * iY(i, j) - lr * new_gain * dCdY(i, j)
+          iY.update(i, j, new_iY)
+
+          Ymat.update(i, j, Ymat(i, j) + new_iY) // Y += iY
+      }
+    }
+    Ymat
+  }
 
 
 
