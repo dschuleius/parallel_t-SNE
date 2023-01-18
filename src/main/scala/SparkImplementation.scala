@@ -4,8 +4,7 @@
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.apache.spark.mllib._
-import org.apache.spark.storage.StorageLevel
-
+import breeze.util.JavaArrayOps.dmToArray2
 import scala.io.Source
 import breeze.linalg._
 import breeze.storage._
@@ -122,4 +121,56 @@ object SparkImplementation extends App {
   computeSimilarityScoresT(pairwiseDistances(MNISTdata))._1.take(10).foreach(println)
 
 
+  def sortColumns(matrix: DenseMatrix[Double], vector: DenseVector[Double]): DenseMatrix[Double] = {
+    // sort Array in descending order
+    val sortedVector = vector.toArray.sortWith(_ > _)
+    val sortedMatrix = DenseMatrix.zeros[Double](matrix.rows, matrix.cols)
+    for (i <- 0 until matrix.cols) {
+      val colIndex = vector.findAll(_ == sortedVector(i)).head
+      sortedMatrix(::, i) := matrix(::, colIndex)
+    }
+    sortedMatrix
+  }
+
+
+  def initialPCA(data: RDD[Array[Double]], k: Int = 2): RDD[Array[Double]] = {
+    // assert non-empty RDD and no empty rows
+
+    // Convert data to breeze DenseMatrix
+    val dataMatrix = DenseMatrix(data.map(row => DenseVector(row)).collect(): _*)
+
+
+    // Calculate column mean as vector of sum of columns multiplied by 1/#rows
+    // Element-wise division is not implemented as it seems, so use mult. by inverse.
+    // Subtract column means from respective column entries in dataMatrix
+    val meanVector = sum(dataMatrix(::, *)) *:* (1.0 / dataMatrix.rows.toDouble)
+    val centeredDataMatrix = dataMatrix(*, ::).map(row => (row - meanVector.t))
+
+      // Compute covariance matrix (symmetric).
+      val covMatrix = breeze.linalg.cov(centeredDataMatrix)
+
+      // Compute eigenvalues and eigenvectors of covariance matrix.
+      val es = eigSym(covMatrix)
+
+    // Sort eigenvalues and eigenvectors in descending order.
+    val sortedEigenVectors = sortColumns(es.eigenvectors, es.eigenvalues)
+
+    // Project data onto top k eigenvectors (change-of-basis).
+    // choose top k eigenvectors
+    val topEigenVectors = sortedEigenVectors(::, 0 until k)
+    val projectedData = (topEigenVectors.t * centeredDataMatrix.t).t
+
+    // Convert projected data back to Array[Array[Double]]
+    val projDataRDD = sc.parallelize(dmToArray2(projectedData))
+
+    projDataRDD
+  }
+
+  // testing initialPCA
+  initialPCA(MNISTdata).foreach(arr => println(arr.mkString(",")))
+
+
+
 }
+
+
