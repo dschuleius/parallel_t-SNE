@@ -3,6 +3,7 @@
 
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
+import org.apache.spark.ml.feature.PCA
 import org.apache.spark.mllib._
 import breeze.util.JavaArrayOps.dmToArray2
 import scala.io.Source
@@ -133,6 +134,8 @@ object SparkImplementation extends App {
   }
 
 
+  // stick to builtin PCA function, this is just backup
+  /*
   def initialPCA(data: RDD[Array[Double]], k: Int = 2): RDD[Array[Double]] = {
     // assert non-empty RDD and no empty rows
 
@@ -166,8 +169,29 @@ object SparkImplementation extends App {
     projDataRDD
   }
 
-  // testing initialPCA
-  initialPCA(MNISTdata).foreach(arr => println(arr.mkString(",")))
+   */
+
+
+  // built-in PCA function
+  def mlPCA(data: RDD[Array[Double]], k: Int = 2): RDD[Array[Double]] = {
+    val rows = data.map(x => Vectors.dense(x))
+    val mat: RowMatrix = new RowMatrix(rows)
+
+    // Compute the top 4 principal components.
+    // Principal components are stored in a local dense matrix.
+    val pc: linalg.Matrix = mat.computePrincipalComponents(k)
+
+    // Project the rows to the linear space spanned by the top 4 principal components.
+    val projected: RowMatrix = mat.multiply(pc)
+
+    val projectedRDD: RDD[Array[Double]] = projected.rows.map(_.toArray)
+
+    projectedRDD
+  }
+  println("Testing builtin PCA function:")
+  mlPCA(MNISTdata).foreach(arr => println(arr.mkString(",")))
+
+
 
 
 
