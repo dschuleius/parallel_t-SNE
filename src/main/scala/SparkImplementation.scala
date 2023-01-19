@@ -6,6 +6,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.ml.feature.PCA
 import org.apache.spark.mllib._
 import breeze.util.JavaArrayOps.dmToArray2
+
 import scala.io.Source
 import breeze.linalg._
 import breeze.storage._
@@ -70,9 +71,6 @@ object SparkImplementation extends App {
     val unnormSimilarities = distances.map { case ((i, j), d) =>
       ((i, j), math.exp(-1 * scala.math.pow(d, 2) / (2 * scala.math.pow(sigma, 2))))
     }
-
-    // problem: RDD transformation invoked inside of other transformation: not allowed!!
-    //val denominators = unnormSimilarities.map { case ((i, _), _) => i }.distinct() //.map { i => (i,
 
     val denominators = unnormSimilarities.filter { case ((i, k), _) => i != k }.map { case ((i, j), d) =>
       ((i, j), math.exp(-1 * scala.math.pow(d, 2) / (2 * scala.math.pow(sigma, 2))))}.reduceByKey(_ + _)
@@ -212,9 +210,9 @@ object SparkImplementation extends App {
                  lr: Double = 500):
   DenseMatrix[Double] = {
 
-    assert(P.count() == Q.count(), "SimilarityScore multi-dim. Arrays must have the same number of rows.")
-    assert(P.first().length == Q.first().length, "SimilarityScore multi-dim. Arrays must have the same number of columns.")
-    assert(P.count() == P.first().length && Q.count() == Q(0).length, "SimilarityScore multi-dim. Arrays must be symmetric.")
+    assert(P.map(_._1._1).max() + 1 == Q.map(_._1._1).max() + 1, "SimilarityScore multi-dim. Arrays must have the same number of rows.")
+    assert(P.map(_._1._2).max() + 1 == Q.map(_._1._2).max() + 1, "SimilarityScore multi-dim. Arrays must have the same number of columns.")
+    assert(P.map(_._1._1).max() + 1 == P.map(_._1._2).max() + 1  && Q.map(_._1._1).max() + 1 == Q.map(_._1._2).max() + 1, "SimilarityScore multi-dim. Arrays must be symmetric.")
 
     // initialize variables
     val n: Int = P.count().toInt
@@ -223,22 +221,22 @@ object SparkImplementation extends App {
     val gains = DenseMatrix.ones[Double](n, k)
     val Ymat = DenseMatrix.zeros[Double](n, k)
 
-    val Pmat = new DenseMatrix[Double](P.count().toInt, P.first().length, P.collect().flatten)
-    val Qmat = new DenseMatrix[Double](Q.count().toInt, Q.first().length, Q.collect().flatten)
-    val nummat = new DenseMatrix[Double](num.count().toInt, num.first().length, num.collect().flatten)
+    val Pmat = DenseMatrix.tabulate(P.map(_._1._1).max() + 1, P.map(_._1._2).max() + 1) { (i, j) => P.lookup((i, j)).headOption.getOrElse(0.0) }
+    val Qmat = DenseMatrix.tabulate(Q.map(_._1._1).max() + 1, Q.map(_._1._2).max() + 1) { (i, j) => Q.lookup((i, j)).headOption.getOrElse(0.0) }
+    val nummat = DenseMatrix.tabulate(num.map(_._1._1).max() + 1, num.map(_._1._2).max() + 1) { (i, j) => num.lookup((i, j)).headOption.getOrElse(0.0) }
 
     val PQmat = Pmat - Qmat
 
     for (iter <- 0 until max_iter) {
 
       // compute SimilarityScores in low dim:
-      val Ymat: new DenseMatrix[Double](k, mlPCA(X).first().length, mlPCA(X).collect().flatten)
+      val Ymat = new DenseMatrix[Double](k, mlPCA(X).first().length, mlPCA(X).collect().flatten)
 
       // compute gradient: insert into every row of dCdy 4*sum_j(p_ij - q_ij)(y_i - y_j) * (1 + L2)^-1
       // see equation (5) in the original paper: https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf
       // y points are points in the low-dim space that are moved into clusters by the optimization.
-      for (i <- 0 until n) {
-        dCdY(i, ::) := sum(tile(PQmat(::, i) *:* nummat(::, i), 1, k).t *:* (stackVector(Ymat(i, ::), n) - Ymat), Axis._0)
+      for (i <- 0 until n + 1) {
+        dCdY(i, ::) := sum(tile(PQmat(::, i) *:* nummat(::, i), 1, k).t *:* (stackVector(Ymat(i, ::).t, n) - Ymat), Axis._0)
       }
 
       // Perform GD update

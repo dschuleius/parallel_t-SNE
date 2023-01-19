@@ -2,6 +2,7 @@
 
 import scala.io.Source
 import breeze.linalg._
+import breeze.numerics.pow
 import breeze.stats.mean
 import breeze.util.JavaArrayOps.dmToArray2
 
@@ -291,8 +292,8 @@ DenseMatrix[Double] = {
     // compute gradient: insert into every row of dCdy 4*sum_j(p_ij - q_ij)(y_i - y_j) * (1 + L2)^-1
     // see equation (5) in the original paper: https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf
     // y points are points in the low-dim space that are moved into clusters by the optimization.
-    for (i <- 0 until n) {
-      dCdY(i, ::) := sum(tile(PQmat(::, i) *:* nummat(::, i), 1, k) *:* (stackVector(Ymat(i, ::).t, n) - Ymat), Axis._0)
+    for (i <- 0 until n + 1) {
+      dCdY(i, ::) := sum(tile(PQmat(::, i) *:* nummat(::, i), 1, k).t *:* (stackVector(Ymat(i, ::).t, n) - Ymat), Axis._0)
     }
 
     // Perform GD update
