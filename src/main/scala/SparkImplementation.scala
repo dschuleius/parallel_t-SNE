@@ -39,12 +39,12 @@ object SparkImplementation extends App {
     data
   }
 
-  val sampleSize: Int = 300
+  val sampleSize: Int = 10
   // calling sc.parallelize to create 2 RDDs from textfile.
   // relative path does not work, probably problem with SBT folder structure
   val toRDDTime = System.nanoTime()
-  val MNISTlabels = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_labels.txt", sampleSize))
-  val MNISTdata = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_X.txt", sampleSize))
+  val MNISTlabels = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt", sampleSize))
+  val MNISTdata = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", sampleSize))
   println("To RDD time for " + sampleSize + " samples: " + (System.nanoTime - toRDDTime)/1000000 + "ms")
 
   // testing
@@ -206,9 +206,9 @@ object SparkImplementation extends App {
 
   // GD optimization is inherently sequential, hence we use a DenseMatrix collection to handle the data.
   def tSNEsimple(X: RDD[Array[Double]],
-                 P: RDD[((Int, Int), Double)],
-                 Q: RDD[((Int, Int), Double)],
-                 num: RDD[((Int, Int), Double)],
+                 P: RDD[((Int, Int), Double)], // should be RowMatrix
+                 Q: RDD[((Int, Int), Double)], // should be RowMatrix
+                 num: RDD[((Int, Int), Double)], // should be RowMatrix
                  k: Int = 2,
                  max_iter: Int = 1000,
                  initial_momentum: Double = 0.5,
@@ -231,6 +231,7 @@ object SparkImplementation extends App {
     val gains = DenseMatrix.ones[Double](sampleSize, k)
     val Ymat = new DenseMatrix[Double](sampleSize, k, mlPCA(X).collect().flatten) // compute SimilarityScores in low dim:
     println("initVarTime time: " + (System.nanoTime - initVarTime) / 1000000 + "ms")
+
 
     val pMatCollTime = System.nanoTime()
     val PmatArray = P.map { case ((i, j), v) => (i, j, v) }.collect()
@@ -261,11 +262,12 @@ object SparkImplementation extends App {
       // compute gradient: insert into every row of dCdy 4*sum_j(p_ij - q_ij)(y_i - y_j) * (1 + L2)^-1
       // see equation (5) in the original paper: https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf
       // y points are points in the low-dim space that are moved into clusters by the optimization.
+
       for (i <- 0 until n) {
 //        println(i)
-        val currentMat = tile(PQmat(::, i) *:* nummat(::, i), 1, k) // 10x2
-        val secondMat = (stackVector(Ymat(i, ::).t, n) - Ymat) // 10x2
-        val rowY = sum(currentMat *:* secondMat, Axis._0)
+        // val currentMat = tile(PQmat(::, i) *:* nummat(::, i), 1, k) // 10x2
+        // val secondMat = (stackVector(Ymat(i, ::).t, n) - Ymat) // 10x2
+        // val rowY = sum(currentMat *:* secondMat, Axis._0)
         dCdY(i, ::) := sum(tile(PQmat(::, i) *:* nummat(::, i), 1, k) *:* (stackVector(Ymat(i, ::).t, n) - Ymat), Axis._0)
       }
 
