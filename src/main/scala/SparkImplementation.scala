@@ -23,6 +23,7 @@ object SparkImplementation extends App {
     .set("spark.driver.host", "127.0.0.1")
     .set("spark.driver.bindAddress", "127.0.0.1")
   val sc = new SparkContext(conf)
+  // Show only Error and not Info messages
   sc.setLogLevel("ERROR")
 
   // function that imports MNIST from .txt files.
@@ -38,16 +39,14 @@ object SparkImplementation extends App {
     data
   }
 
+  val sampleSize: Int = 1000
   // calling sc.parallelize to create 2 RDDs from textfile.
   // relative path does not work, probably problem with SBT folder structure
-  // val MNISTlabels = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_labels.txt", 100))
-  // val MNISTdata = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_X.txt", 100))
-  val MNISTlabels = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt", 1000))
-  val MNISTdata = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", 1000))
-  val n: Int = 1000
+  val MNISTlabels = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_labels.txt", sampleSize))
+  val MNISTdata = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_X.txt", sampleSize))
 
   // testing
-  // MNISTdata.take(10).foreach(println) // .take is BOTTLENECK!! takes 2min for n = 1000
+//  MNISTdata.take(10).foreach(println)
 
   def euclideanDistance(point1: Array[Double], point2: Array[Double]): Double = {
     // Calculate the squared Euclidean distance between the two points
@@ -66,12 +65,14 @@ object SparkImplementation extends App {
     }
   }
 
-  // pairwiseDistances(MNISTdata).take(5).foreach(println) // .take is BOTTLENECK!! takes 2min for n = 1000
+//  pairwiseDistances(MNISTdata).take(5).foreach(println)
 
   // !! still to do: perplexity calculation instead of constant sigma !!
-  def computeSimilarityScoresGauss(distances: RDD[((Int, Int), Double)], sigma: Double): RDD[((Int, Int), Double)] = {
+  def computeSimilarityScoresGauss(distances: RDD[((Int, Int), Double)],
+                                   sigma: Double,
+                                   n: Int = sampleSize): RDD[((Int, Int), Double)] = {
 
-    val n: Int = distances.map(_._1._1).max() + 1 // BOTTLENECK!! takes 30s when n = 1000
+//    val n = distances.count().toInt
     val unnormSimilarities = distances.map { case ((i, j), d) =>
       ((i, j), math.exp(-1 * scala.math.pow(d, 2) / (2 * scala.math.pow(sigma, 2))))
     }
@@ -93,13 +94,13 @@ object SparkImplementation extends App {
 
 
   // testing computeSimilarityScoreGauss
-  // computeSimilarityScoresGauss(pairwiseDistances(MNISTdata), sigma = 1).take(10).foreach(println)    // .take is BOTTLENECK!! takes 2min for n = 1000
+//  computeSimilarityScoresGauss(pairwiseDistances(MNISTdata), sigma = 1).take(10).foreach(println)
 
   // returns a tuple of 2 RDDs, "num" containing the numerator values, which are later needed for the gradient
   // computation, "normSimilarities" containing the Similarity Scores in the low-dim. representation.
-  def computeSimilarityScoresT(distances: RDD[((Int, Int), Double)]): (RDD[((Int, Int), Double)], RDD[((Int, Int), Double)]) = {
+  def computeSimilarityScoresT(distances: RDD[((Int, Int), Double)], n: Int = sampleSize): (RDD[((Int, Int), Double)], RDD[((Int, Int), Double)]) = {
 
-    val n: Int = distances.map(_._1._1).max() + 1
+//    val n = distances.count().toInt
     val num = distances.map { case ((i, j), d) =>
       ((i, j), (1.0 / (1 + scala.math.pow(d, 2))))
     }
@@ -121,7 +122,7 @@ object SparkImplementation extends App {
   }
 
   // testing computeSimilarityScoresT
-  // computeSimilarityScoresT(pairwiseDistances(MNISTdata))._1.take(10).foreach(println)        // .take is BOTTLENECK!! takes 2min for n = 1000
+//  computeSimilarityScoresT(pairwiseDistances(MNISTdata))._1.take(10).foreach(println)
 
 
   /*
@@ -191,8 +192,8 @@ object SparkImplementation extends App {
 
     projectedRDD
   }
-  println("Testing builtin PCA function:")
-  mlPCA(MNISTdata).take(10).foreach(arr => println(arr.mkString(",")))
+//  println("Testing builtin PCA function:")
+//  mlPCA(MNISTdata).foreach(arr => println(arr.mkString(",")))
 
 
   def stackVector(vector: DenseVector[Double], n: Int): DenseMatrix[Double] = {
@@ -211,37 +212,35 @@ object SparkImplementation extends App {
                  initial_momentum: Double = 0.5,
                  final_momentum: Double = 0.8,
                  min_gain: Double = 0.01,
-                 lr: Double = 500):
+                 lr: Double = 500,
+                 sampleSize: Int = SparkImplementation.sampleSize):
+
   DenseMatrix[Double] = {
 
-    assert(P.map(_._1._1).max() + 1 == Q.map(_._1._1).max() + 1, "SimilarityScore multi-dim. Arrays must have the same number of rows.")
-    assert(P.map(_._1._2).max() + 1 == Q.map(_._1._2).max() + 1, "SimilarityScore multi-dim. Arrays must have the same number of columns.")
-    assert(P.map(_._1._1).max() + 1 == P.map(_._1._2).max() + 1  && Q.map(_._1._1).max() + 1 == Q.map(_._1._2).max() + 1, "SimilarityScore multi-dim. Arrays must be symmetric.")
+//    assert(P.map(_._1._1).max() + 1 == Q.map(_._1._1).max() + 1, "SimilarityScore multi-dim. Arrays must have the same number of rows.")
+//    assert(P.map(_._1._2).max() + 1 == Q.map(_._1._2).max() + 1, "SimilarityScore multi-dim. Arrays must have the same number of columns.")
+//    assert(P.map(_._1._1).max() + 1 == P.map(_._1._2).max() + 1  && Q.map(_._1._1).max() + 1 == Q.map(_._1._2).max() + 1, "SimilarityScore multi-dim. Arrays must be symmetric.")
 
     // initialize variables
-
-    // P.map(_._1._2) maps the RDD P to a new RDD containing the second element of each tuple's first element.
-    // The first element of the tuple is a pair of integers (i, j) and the second element is a double value. So this maps to a new RDD containing all the j values of the input RDD.
-    // max() returns the maximum value of the RDD, which is the maximum value of j.
-    //+ 1 is used to add 1 to the maximum value of j, to get the total number of columns in the matrix.
-    val n: Int = P.map(_._1._2).max() + 1
-    val dCdY = DenseMatrix.zeros[Double](n, k)
-    val iY = DenseMatrix.zeros[Double](n, k)
-    val gains = DenseMatrix.ones[Double](n, k)
-    val Ymat = new DenseMatrix[Double](n, k, mlPCA(X).collect().flatten) // compute SimilarityScores in low dim:
+    val n: Int = sampleSize
+    val dCdY = DenseMatrix.zeros[Double](sampleSize, k)
+    val iY = DenseMatrix.zeros[Double](sampleSize, k)
+    val gains = DenseMatrix.ones[Double](sampleSize, k)
+    val Ymat = new DenseMatrix[Double](sampleSize, k, mlPCA(X).collect().flatten) // compute SimilarityScores in low dim:
 
     val PmatArray = P.map { case ((i, j), v) => (i, j, v) }.collect()
-    val Pmat: DenseMatrix[Double] = DenseMatrix.tabulate(P.map(_._1._1).max() + 1, P.map(_._1._2).max() + 1)((i, j) => PmatArray.find(x => x._1 == i && x._2 == j).map(_._3).getOrElse(0.0))
+    val Pmat: DenseMatrix[Double] = DenseMatrix.tabulate(sampleSize, sampleSize)((i, j) => PmatArray.find(x => x._1 == i && x._2 == j).map(_._3).getOrElse(0.0))
 
     val QmatArray = Q.map { case ((i, j), v) => (i, j, v) }.collect()
-    val Qmat: DenseMatrix[Double] = DenseMatrix.tabulate(Q.map(_._1._1).max() + 1, Q.map(_._1._2).max() + 1)((i, j) => QmatArray.find(x => x._1 == i && x._2 == j).map(_._3).getOrElse(0.0))
+    val Qmat: DenseMatrix[Double] = DenseMatrix.tabulate(sampleSize, sampleSize)((i, j) => QmatArray.find(x => x._1 == i && x._2 == j).map(_._3).getOrElse(0.0))
 
     val nummatArray = num.map { case ((i, j), v) => (i, j, v) }.collect()
-    val nummat: DenseMatrix[Double] = DenseMatrix.tabulate(num.map(_._1._1).max() + 1, num.map(_._1._2).max() + 1)((i, j) => nummatArray.find(x => x._1 == i && x._2 == j).map(_._3).getOrElse(0.0))
+    val nummat: DenseMatrix[Double] = DenseMatrix.tabulate(sampleSize, sampleSize)((i, j) => nummatArray.find(x => x._1 == i && x._2 == j).map(_._3).getOrElse(0.0))
 
-    //val Pmat = DenseMatrix.tabulate(P.map(_._1._1).max() + 1, P.map(_._1._2).max() + 1) { (i, j) => P.sortByKey().lookup((i, j)).headOption.getOrElse(0.0) }
-    //val Qmat = DenseMatrix.tabulate(Q.map(_._1._1).max() + 1, Q.map(_._1._2).max() + 1) { (i, j) => Q.sortByKey().lookup((i, j)).headOption.getOrElse(0.0) }
-    //val nummat = DenseMatrix.tabulate(num.map(_._1._1).max() + 1, num.map(_._1._2).max() + 1) { (i, j) => num.sortByKey().lookup((i, j)).headOption.getOrElse(0.0) }
+    //val Pmat = DenseMatrix.tabulate(sampleSize, sampleSize) { (i, j) => P.sortByKey().lookup((i, j)).headOption.getOrElse(0.0) }
+    //val Qmat = DenseMatrix.tabulate(sampleSize, sampleSize) { (i, j) => Q.sortByKey().lookup((i, j)).headOption.getOrElse(0.0) }
+    //val nummat = DenseMatrix.tabulate(sampleSize, sampleSize) { (i, j) => num.sortByKey().lookup((i, j)).headOption.getOrElse(0.0) }
+
 
     val PQmat = Pmat - Qmat
 
@@ -285,13 +284,11 @@ object SparkImplementation extends App {
     P = computeSimilarityScoresGauss(pairwiseDistances(MNISTdata), sigma = 1),
     Q = computeSimilarityScoresT(pairwiseDistances(MNISTdata))._1,
     num = computeSimilarityScoresT(pairwiseDistances(MNISTdata))._2,
-    max_iter = 5
+    max_iter = 5,
   )
 
-  println("THE ENDRESULT IS YMAT:")
+  println("Ymat Optimized: ")
   println(YmatOptimized)
-
-
 
 }
 

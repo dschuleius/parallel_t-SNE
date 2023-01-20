@@ -275,10 +275,10 @@ DenseMatrix[Double] = {
 
   // initialize variables
   val n = P.length
-  val dCdY = DenseMatrix.zeros[Double](n, k)
-  val iY = DenseMatrix.zeros[Double](n, k)
-  val gains = DenseMatrix.ones[Double](n, k)
-  val Ymat = DenseMatrix.zeros[Double](n, k)
+  val dCdY = DenseMatrix.zeros[Double](sampleSize, k)
+  val iY = DenseMatrix.zeros[Double](sampleSize, k)
+  val gains = DenseMatrix.ones[Double](sampleSize, k)
+  val Ymat = DenseMatrix.zeros[Double](sampleSize, k)
 
   val PQmat = DenseMatrix((P - Q).map(row => DenseVector(row)): _*)
   val nummat = DenseMatrix(num.map(row => DenseVector(row)): _*)
