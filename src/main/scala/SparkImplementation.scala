@@ -219,7 +219,7 @@ object SparkImplementation extends App {
     val dCdY = DenseMatrix.zeros[Double](n, k)
     val iY = DenseMatrix.zeros[Double](n, k)
     val gains = DenseMatrix.ones[Double](n, k)
-    val Ymat = DenseMatrix.zeros[Double](n, k)
+    val Ymat = new DenseMatrix[Double](k, mlPCA(X).first().length, mlPCA(X).collect().flatten) // compute SimilarityScores in low dim:
 
     val Pmat = DenseMatrix.tabulate(P.map(_._1._1).max() + 1, P.map(_._1._2).max() + 1) { (i, j) => P.lookup((i, j)).headOption.getOrElse(0.0) }
     val Qmat = DenseMatrix.tabulate(Q.map(_._1._1).max() + 1, Q.map(_._1._2).max() + 1) { (i, j) => Q.lookup((i, j)).headOption.getOrElse(0.0) }
@@ -228,9 +228,6 @@ object SparkImplementation extends App {
     val PQmat = Pmat - Qmat
 
     for (iter <- 0 until max_iter) {
-
-      // compute SimilarityScores in low dim:
-      val Ymat = new DenseMatrix[Double](k, mlPCA(X).first().length, mlPCA(X).collect().flatten)
 
       // compute gradient: insert into every row of dCdy 4*sum_j(p_ij - q_ij)(y_i - y_j) * (1 + L2)^-1
       // see equation (5) in the original paper: https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf
@@ -260,7 +257,15 @@ object SparkImplementation extends App {
     Ymat
   }
 
+  // testing tSNEsimple
+  val YmatOptimized = tSNEsimple(X = MNISTdata,
+    P = computeSimilarityScoresGauss(pairwiseDistances(MNISTdata), sigma = 1),
+    Q = computeSimilarityScoresT(pairwiseDistances(MNISTdata))._1,
+    num = computeSimilarityScoresT(pairwiseDistances(MNISTdata))._2,
+    max_iter = 5,
+  )
 
+  println(YmatOptimized)
 
 }
 
