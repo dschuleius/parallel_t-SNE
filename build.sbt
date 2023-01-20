@@ -2,6 +2,8 @@ ThisBuild / version := "0.1.0-SNAPSHOT"
 
 ThisBuild / scalaVersion := "2.13.10"
 
+//sources ~= Compile ~= (_.filter(_name == "Particular.scala"))
+
 
 // breeze is disabled because spark-mllib also imports breeze but a different version
 // so that the program throws an error at compile time.
