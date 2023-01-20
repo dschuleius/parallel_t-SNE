@@ -14,12 +14,12 @@ import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.linalg.distributed.RowMatrix
 import org.apache.spark.rdd.RDD
 
-object SparkImplementation extends App {
+object Main {
 
   // set up Spark, changing to local host.
   val conf = new SparkConf()
     .setAppName("distributed_t-SNE")
-    .setMaster("local")
+    .setMaster("local[*]")
     .set("spark.driver.host", "127.0.0.1")
     .set("spark.driver.bindAddress", "127.0.0.1")
   val sc = new SparkContext(conf)
@@ -215,7 +215,7 @@ object SparkImplementation extends App {
                  final_momentum: Double = 0.8,
                  min_gain: Double = 0.01,
                  lr: Double = 500,
-                 sampleSize: Int = SparkImplementation.sampleSize):
+                 sampleSize: Int = Main.sampleSize):
 
   DenseMatrix[Double] = {
 
@@ -291,15 +291,19 @@ object SparkImplementation extends App {
     Ymat
   }
 
-  // testing tSNEsimple
-  val totalTime = System.nanoTime()
-  val YmatOptimized = tSNEsimple(X = MNISTdata,
-    P = computeSimilarityScoresGauss(pairwiseDistances(MNISTdata), sigma = 1),
-    Q = computeSimilarityScoresT(pairwiseDistances(MNISTdata))._1,
-    num = computeSimilarityScoresT(pairwiseDistances(MNISTdata))._2,
-    max_iter = 5,
-  )
-  println("Total time: " + (System.nanoTime - totalTime) / 1000000 + "ms")
+  // Define main function
+  def main(args: Array[String]): Unit = {
+    // testing tSNEsimple
+    val totalTime = System.nanoTime()
+    val YmatOptimized = tSNEsimple(X = MNISTdata,
+      P = computeSimilarityScoresGauss(pairwiseDistances(MNISTdata), sigma = 1),
+      Q = computeSimilarityScoresT(pairwiseDistances(MNISTdata))._1,
+      num = computeSimilarityScoresT(pairwiseDistances(MNISTdata))._2,
+      max_iter = 5,
+    )
+    println("Total time: " + (System.nanoTime - totalTime) / 1000000 + "ms")
+  }
+
 
 //  println("Ymat Optimized: ")
 //  YmatOptimized
