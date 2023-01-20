@@ -1,3 +1,9 @@
+# Problems encountered for final presentation
+- `map`: Conversion from one collection type into another very costly at times. Needs to be thought through and optimized (e.g. `RDD.collect()` only once).
+- Same names for collections, e.g. `DenseMatrix`, both breeze and Spark MLLib
+- Functional programming with RDDs and specialized RDD operations require whole different approach.
+
+
 # Project News
 - https://spark.apache.org/docs/latest/rdd-programming-guide.html
 
