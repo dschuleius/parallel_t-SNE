@@ -19,10 +19,11 @@ object SparkImplementation extends App {
   // set up Spark, changing to local host.
   val conf = new SparkConf()
     .setAppName("distributed_t-SNE")
-    .setMaster("local[1]")
+    .setMaster("local")
     .set("spark.driver.host", "127.0.0.1")
     .set("spark.driver.bindAddress", "127.0.0.1")
   val sc = new SparkContext(conf)
+  sc.setLogLevel("ERROR")
 
   // function that imports MNIST from .txt files.
   def importData(fileName: String, sampleSize: Int): Array[Array[Double]] = {
@@ -39,8 +40,10 @@ object SparkImplementation extends App {
 
   // calling sc.parallelize to create 2 RDDs from textfile.
   // relative path does not work, probably problem with SBT folder structure
-  val MNISTlabels = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_labels.txt", 10))
-  val MNISTdata = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_X.txt", 10))
+  // val MNISTlabels = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_labels.txt", 100))
+  // val MNISTdata = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_X.txt", 100))
+  val MNISTlabels = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt", 100))
+  val MNISTdata = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", 100))
 
   // testing
   MNISTdata.take(10).foreach(println)
@@ -188,7 +191,7 @@ object SparkImplementation extends App {
     projectedRDD
   }
   println("Testing builtin PCA function:")
-  mlPCA(MNISTdata).foreach(arr => println(arr.mkString(",")))
+  mlPCA(MNISTdata).take(10).foreach(arr => println(arr.mkString(",")))
 
 
   def stackVector(vector: DenseVector[Double], n: Int): DenseMatrix[Double] = {
@@ -221,9 +224,18 @@ object SparkImplementation extends App {
     val gains = DenseMatrix.ones[Double](n, k)
     val Ymat = new DenseMatrix[Double](n, k, mlPCA(X).collect().flatten) // compute SimilarityScores in low dim:
 
-    val Pmat = DenseMatrix.tabulate(P.map(_._1._1).max() + 1, P.map(_._1._2).max() + 1) { (i, j) => P.lookup((i, j)).headOption.getOrElse(0.0) }
-    val Qmat = DenseMatrix.tabulate(Q.map(_._1._1).max() + 1, Q.map(_._1._2).max() + 1) { (i, j) => Q.lookup((i, j)).headOption.getOrElse(0.0) }
-    val nummat = DenseMatrix.tabulate(num.map(_._1._1).max() + 1, num.map(_._1._2).max() + 1) { (i, j) => num.lookup((i, j)).headOption.getOrElse(0.0) }
+    val PmatArray = P.map { case ((i, j), v) => (i, j, v) }.collect()
+    val Pmat: DenseMatrix[Double] = DenseMatrix.tabulate(P.map(_._1._1).max() + 1, P.map(_._1._2).max() + 1)((i, j) => PmatArray.find(x => x._1 == i && x._2 == j).map(_._3).getOrElse(0.0))
+
+    val QmatArray = Q.map { case ((i, j), v) => (i, j, v) }.collect()
+    val Qmat: DenseMatrix[Double] = DenseMatrix.tabulate(Q.map(_._1._1).max() + 1, Q.map(_._1._2).max() + 1)((i, j) => QmatArray.find(x => x._1 == i && x._2 == j).map(_._3).getOrElse(0.0))
+
+    val nummatArray = num.map { case ((i, j), v) => (i, j, v) }.collect()
+    val nummat: DenseMatrix[Double] = DenseMatrix.tabulate(num.map(_._1._1).max() + 1, num.map(_._1._2).max() + 1)((i, j) => nummatArray.find(x => x._1 == i && x._2 == j).map(_._3).getOrElse(0.0))
+
+    //val Pmat = DenseMatrix.tabulate(P.map(_._1._1).max() + 1, P.map(_._1._2).max() + 1) { (i, j) => P.sortByKey().lookup((i, j)).headOption.getOrElse(0.0) }
+    //val Qmat = DenseMatrix.tabulate(Q.map(_._1._1).max() + 1, Q.map(_._1._2).max() + 1) { (i, j) => Q.sortByKey().lookup((i, j)).headOption.getOrElse(0.0) }
+    //val nummat = DenseMatrix.tabulate(num.map(_._1._1).max() + 1, num.map(_._1._2).max() + 1) { (i, j) => num.sortByKey().lookup((i, j)).headOption.getOrElse(0.0) }
 
     val PQmat = Pmat - Qmat
 
@@ -267,10 +279,13 @@ object SparkImplementation extends App {
     P = computeSimilarityScoresGauss(pairwiseDistances(MNISTdata), sigma = 1),
     Q = computeSimilarityScoresT(pairwiseDistances(MNISTdata))._1,
     num = computeSimilarityScoresT(pairwiseDistances(MNISTdata))._2,
-    max_iter = 5,
+    max_iter = 5
   )
 
+  println("THE ENDRESULT IS YMAT:")
   println(YmatOptimized)
+
+
 
 }
 
