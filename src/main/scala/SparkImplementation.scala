@@ -39,8 +39,8 @@ object SparkImplementation extends App {
 
   // calling sc.parallelize to create 2 RDDs from textfile.
   // relative path does not work, probably problem with SBT folder structure
-  val MNISTlabels = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt", 10))
-  val MNISTdata = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", 10))
+  val MNISTlabels = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_labels.txt", 10))
+  val MNISTdata = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_X.txt", 10))
 
   // testing
   MNISTdata.take(10).foreach(println)
@@ -215,11 +215,11 @@ object SparkImplementation extends App {
     assert(P.map(_._1._1).max() + 1 == P.map(_._1._2).max() + 1  && Q.map(_._1._1).max() + 1 == Q.map(_._1._2).max() + 1, "SimilarityScore multi-dim. Arrays must be symmetric.")
 
     // initialize variables
-    val n: Int = P.count().toInt
+    val n: Int = P.map(_._1._2).max() + 1
     val dCdY = DenseMatrix.zeros[Double](n, k)
     val iY = DenseMatrix.zeros[Double](n, k)
     val gains = DenseMatrix.ones[Double](n, k)
-    val Ymat = new DenseMatrix[Double](k, mlPCA(X).first().length, mlPCA(X).collect().flatten) // compute SimilarityScores in low dim:
+    val Ymat = new DenseMatrix[Double](n, k, mlPCA(X).collect().flatten) // compute SimilarityScores in low dim:
 
     val Pmat = DenseMatrix.tabulate(P.map(_._1._1).max() + 1, P.map(_._1._2).max() + 1) { (i, j) => P.lookup((i, j)).headOption.getOrElse(0.0) }
     val Qmat = DenseMatrix.tabulate(Q.map(_._1._1).max() + 1, Q.map(_._1._2).max() + 1) { (i, j) => Q.lookup((i, j)).headOption.getOrElse(0.0) }
@@ -232,8 +232,12 @@ object SparkImplementation extends App {
       // compute gradient: insert into every row of dCdy 4*sum_j(p_ij - q_ij)(y_i - y_j) * (1 + L2)^-1
       // see equation (5) in the original paper: https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf
       // y points are points in the low-dim space that are moved into clusters by the optimization.
-      for (i <- 0 until n + 1) {
-        dCdY(i, ::) := sum(tile(PQmat(::, i) *:* nummat(::, i), 1, k).t *:* (stackVector(Ymat(i, ::).t, n) - Ymat), Axis._0)
+      for (i <- 0 until n) {
+        println(i)
+        val currentMat = tile(PQmat(::, i) *:* nummat(::, i), 1, k) // 10x2
+        val secondMat = (stackVector(Ymat(i, ::).t, n) - Ymat) // 10x2
+        val rowY = sum(currentMat *:* secondMat, Axis._0)
+        dCdY(i, ::) := sum(tile(PQmat(::, i) *:* nummat(::, i), 1, k) *:* (stackVector(Ymat(i, ::).t, n) - Ymat), Axis._0)
       }
 
       // Perform GD update
@@ -252,6 +256,7 @@ object SparkImplementation extends App {
           iY.update(i, j, new_iY)
 
           Ymat.update(i, j, Ymat(i, j) + new_iY) // Y += iY
+
       }
     }
     Ymat
