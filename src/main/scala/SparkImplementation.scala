@@ -42,11 +42,12 @@ object SparkImplementation extends App {
   // relative path does not work, probably problem with SBT folder structure
   // val MNISTlabels = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_labels.txt", 100))
   // val MNISTdata = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_X.txt", 100))
-  val MNISTlabels = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt", 100))
-  val MNISTdata = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", 100))
+  val MNISTlabels = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt", 1000))
+  val MNISTdata = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", 1000))
+  val n: Int = 1000
 
   // testing
-  MNISTdata.take(10).foreach(println)
+  // MNISTdata.take(10).foreach(println) // .take is BOTTLENECK!! takes 2min for n = 1000
 
   def euclideanDistance(point1: Array[Double], point2: Array[Double]): Double = {
     // Calculate the squared Euclidean distance between the two points
@@ -65,12 +66,12 @@ object SparkImplementation extends App {
     }
   }
 
-  pairwiseDistances(MNISTdata).take(5).foreach(println)
+  // pairwiseDistances(MNISTdata).take(5).foreach(println) // .take is BOTTLENECK!! takes 2min for n = 1000
 
   // !! still to do: perplexity calculation instead of constant sigma !!
   def computeSimilarityScoresGauss(distances: RDD[((Int, Int), Double)], sigma: Double): RDD[((Int, Int), Double)] = {
 
-    val n = distances.count().toInt
+    val n: Int = distances.map(_._1._1).max() + 1 // BOTTLENECK!! takes 30s when n = 1000
     val unnormSimilarities = distances.map { case ((i, j), d) =>
       ((i, j), math.exp(-1 * scala.math.pow(d, 2) / (2 * scala.math.pow(sigma, 2))))
     }
@@ -92,13 +93,13 @@ object SparkImplementation extends App {
 
 
   // testing computeSimilarityScoreGauss
-  computeSimilarityScoresGauss(pairwiseDistances(MNISTdata), sigma = 1).take(10).foreach(println)
+  // computeSimilarityScoresGauss(pairwiseDistances(MNISTdata), sigma = 1).take(10).foreach(println)    // .take is BOTTLENECK!! takes 2min for n = 1000
 
   // returns a tuple of 2 RDDs, "num" containing the numerator values, which are later needed for the gradient
   // computation, "normSimilarities" containing the Similarity Scores in the low-dim. representation.
   def computeSimilarityScoresT(distances: RDD[((Int, Int), Double)]): (RDD[((Int, Int), Double)], RDD[((Int, Int), Double)]) = {
 
-    val n = distances.count().toInt
+    val n: Int = distances.map(_._1._1).max() + 1
     val num = distances.map { case ((i, j), d) =>
       ((i, j), (1.0 / (1 + scala.math.pow(d, 2))))
     }
@@ -120,7 +121,7 @@ object SparkImplementation extends App {
   }
 
   // testing computeSimilarityScoresT
-  computeSimilarityScoresT(pairwiseDistances(MNISTdata))._1.take(10).foreach(println)
+  // computeSimilarityScoresT(pairwiseDistances(MNISTdata))._1.take(10).foreach(println)        // .take is BOTTLENECK!! takes 2min for n = 1000
 
 
   /*
@@ -218,6 +219,11 @@ object SparkImplementation extends App {
     assert(P.map(_._1._1).max() + 1 == P.map(_._1._2).max() + 1  && Q.map(_._1._1).max() + 1 == Q.map(_._1._2).max() + 1, "SimilarityScore multi-dim. Arrays must be symmetric.")
 
     // initialize variables
+
+    // P.map(_._1._2) maps the RDD P to a new RDD containing the second element of each tuple's first element.
+    // The first element of the tuple is a pair of integers (i, j) and the second element is a double value. So this maps to a new RDD containing all the j values of the input RDD.
+    // max() returns the maximum value of the RDD, which is the maximum value of j.
+    //+ 1 is used to add 1 to the maximum value of j, to get the total number of columns in the matrix.
     val n: Int = P.map(_._1._2).max() + 1
     val dCdY = DenseMatrix.zeros[Double](n, k)
     val iY = DenseMatrix.zeros[Double](n, k)
