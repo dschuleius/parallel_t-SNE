@@ -39,11 +39,13 @@ object SparkImplementation extends App {
     data
   }
 
-  val sampleSize: Int = 1000
+  val sampleSize: Int = 300
   // calling sc.parallelize to create 2 RDDs from textfile.
   // relative path does not work, probably problem with SBT folder structure
+  val toRDDTime = System.nanoTime()
   val MNISTlabels = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_labels.txt", sampleSize))
   val MNISTdata = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_X.txt", sampleSize))
+  println("To RDD time for " + sampleSize + " samples: " + (System.nanoTime - toRDDTime)/1000000 + "ms")
 
   // testing
 //  MNISTdata.take(10).foreach(println)
@@ -222,20 +224,30 @@ object SparkImplementation extends App {
 //    assert(P.map(_._1._1).max() + 1 == P.map(_._1._2).max() + 1  && Q.map(_._1._1).max() + 1 == Q.map(_._1._2).max() + 1, "SimilarityScore multi-dim. Arrays must be symmetric.")
 
     // initialize variables
+    val initVarTime = System.nanoTime()
     val n: Int = sampleSize
     val dCdY = DenseMatrix.zeros[Double](sampleSize, k)
     val iY = DenseMatrix.zeros[Double](sampleSize, k)
     val gains = DenseMatrix.ones[Double](sampleSize, k)
     val Ymat = new DenseMatrix[Double](sampleSize, k, mlPCA(X).collect().flatten) // compute SimilarityScores in low dim:
+    println("initVarTime time: " + (System.nanoTime - initVarTime) / 1000000 + "ms")
 
+    val pMatCollTime = System.nanoTime()
     val PmatArray = P.map { case ((i, j), v) => (i, j, v) }.collect()
-    val Pmat: DenseMatrix[Double] = DenseMatrix.tabulate(sampleSize, sampleSize)((i, j) => PmatArray.find(x => x._1 == i && x._2 == j).map(_._3).getOrElse(0.0))
+    println("pMatCollTime time collect: " + (System.nanoTime - pMatCollTime) / 1000000 + "ms")
 
+    val Pmat: DenseMatrix[Double] = DenseMatrix.tabulate(sampleSize, sampleSize)((i, j) => PmatArray.find(x => x._1 == i && x._2 == j).map(_._3).getOrElse(0.0))
+    println("pMatCollTime time find: " + (System.nanoTime - pMatCollTime) / 1000000 + "ms")
+
+    val qMatCollTime = System.nanoTime()
     val QmatArray = Q.map { case ((i, j), v) => (i, j, v) }.collect()
     val Qmat: DenseMatrix[Double] = DenseMatrix.tabulate(sampleSize, sampleSize)((i, j) => QmatArray.find(x => x._1 == i && x._2 == j).map(_._3).getOrElse(0.0))
+    println("qMatCollTime time: " + (System.nanoTime - qMatCollTime) / 1000000 + "ms")
 
+    val numMatCollTime = System.nanoTime()
     val nummatArray = num.map { case ((i, j), v) => (i, j, v) }.collect()
     val nummat: DenseMatrix[Double] = DenseMatrix.tabulate(sampleSize, sampleSize)((i, j) => nummatArray.find(x => x._1 == i && x._2 == j).map(_._3).getOrElse(0.0))
+    println("numMatCollTime time: " + (System.nanoTime - numMatCollTime) / 1000000 + "ms")
 
     //val Pmat = DenseMatrix.tabulate(sampleSize, sampleSize) { (i, j) => P.sortByKey().lookup((i, j)).headOption.getOrElse(0.0) }
     //val Qmat = DenseMatrix.tabulate(sampleSize, sampleSize) { (i, j) => Q.sortByKey().lookup((i, j)).headOption.getOrElse(0.0) }
@@ -250,7 +262,7 @@ object SparkImplementation extends App {
       // see equation (5) in the original paper: https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf
       // y points are points in the low-dim space that are moved into clusters by the optimization.
       for (i <- 0 until n) {
-        println(i)
+//        println(i)
         val currentMat = tile(PQmat(::, i) *:* nummat(::, i), 1, k) // 10x2
         val secondMat = (stackVector(Ymat(i, ::).t, n) - Ymat) // 10x2
         val rowY = sum(currentMat *:* secondMat, Axis._0)
@@ -280,15 +292,17 @@ object SparkImplementation extends App {
   }
 
   // testing tSNEsimple
+  val totalTime = System.nanoTime()
   val YmatOptimized = tSNEsimple(X = MNISTdata,
     P = computeSimilarityScoresGauss(pairwiseDistances(MNISTdata), sigma = 1),
     Q = computeSimilarityScoresT(pairwiseDistances(MNISTdata))._1,
     num = computeSimilarityScoresT(pairwiseDistances(MNISTdata))._2,
     max_iter = 5,
   )
+  println("Total time: " + (System.nanoTime - totalTime) / 1000000 + "ms")
 
-  println("Ymat Optimized: ")
-  println(YmatOptimized)
+//  println("Ymat Optimized: ")
+//  YmatOptimized
 
 }
 
