@@ -1,0 +1,10 @@
+[0m[[0m[0minfo[0m] [0m[0m:: delivering :: parallel_t-sne#parallel_t-sne_2.13;0.1.0-SNAPSHOT :: 0.1.0-SNAPSHOT :: integration :: Tue Jan 24 16:12:03 CET 2023[0m
+[0m[[0m[0mdebug[0m] [0m[0m	options = status=integration pubdate=Tue Jan 24 16:12:03 CET 2023 validate=true resolveDynamicRevisions=true merge=true resolveId=null pubBranch=null[0m
+[0m[[0m[0minfo[0m] [0m[0m	delivering ivy file to /Users/anani/Code/parallel_t-SNE/target/scala-2.13/ivy-0.1.0-SNAPSHOT.xml[0m
+[0m[[0m[0mdebug[0m] [0m[0m	deliver done (3ms)[0m
+[0m[[0m[0mdebug[0m] [0m[0mlocal do not support transaction. ivy pattern does not use revision as a directory[0m
+[0m[[0m[0minfo[0m] [0m[0m	published parallel_t-sne_2.13 to /Users/anani/.ivy2/local/parallel_t-sne/parallel_t-sne_2.13/0.1.0-SNAPSHOT/poms/parallel_t-sne_2.13.pom[0m
+[0m[[0m[0minfo[0m] [0m[0m	published parallel_t-sne_2.13 to /Users/anani/.ivy2/local/parallel_t-sne/parallel_t-sne_2.13/0.1.0-SNAPSHOT/jars/parallel_t-sne_2.13.jar[0m
+[0m[[0m[0minfo[0m] [0m[0m	published parallel_t-sne_2.13 to /Users/anani/.ivy2/local/parallel_t-sne/parallel_t-sne_2.13/0.1.0-SNAPSHOT/srcs/parallel_t-sne_2.13-sources.jar[0m
+[0m[[0m[0minfo[0m] [0m[0m	published parallel_t-sne_2.13 to /Users/anani/.ivy2/local/parallel_t-sne/parallel_t-sne_2.13/0.1.0-SNAPSHOT/docs/parallel_t-sne_2.13-javadoc.jar[0m
+[0m[[0m[0minfo[0m] [0m[0m	published ivy to /Users/anani/.ivy2/local/parallel_t-sne/parallel_t-sne_2.13/0.1.0-SNAPSHOT/ivys/ivy.xml[0m

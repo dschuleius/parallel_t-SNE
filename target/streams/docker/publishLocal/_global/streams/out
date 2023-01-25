@@ -1,0 +1,60 @@
+[0m[[0m[0mdebug[0m] [0m[0mExecuting Native docker build --force-rm -t parallel_t-sne:0.1.0-SNAPSHOT .[0m
+[0m[[0m[0mdebug[0m] [0m[0mWorking directory /Users/anani/Code/parallel_t-SNE/target/docker/stage[0m
+[0m[[0m[31merror[0m] [0m[0m#1 [internal] load build definition from Dockerfile[0m
+[0m[[0m[31merror[0m] [0m[0m#1 sha256:2550385a34569f5c497f345c9801fc05428c334a2ca141edb066b4c51654ec93[0m
+[0m[[0m[31merror[0m] [0m[0m#1 transferring dockerfile: 1.02kB 0.0s done[0m
+[0m[[0m[31merror[0m] [0m[0m#1 DONE 0.0s[0m
+[0m[[0m[31merror[0m] [0m[0m#2 [internal] load .dockerignore[0m
+[0m[[0m[31merror[0m] [0m[0m#2 sha256:7a9a0cd8d08303b8230300c78dd3ee197ce20c73e8f6cdf676ac7864fe9f5e34[0m
+[0m[[0m[31merror[0m] [0m[0m#2 transferring context: 2B done[0m
+[0m[[0m[31merror[0m] [0m[0m#2 DONE 0.0s[0m
+[0m[[0m[31merror[0m] [0m[0m#3 [internal] load metadata for docker.io/library/openjdk:8[0m
+[0m[[0m[31merror[0m] [0m[0m#3 sha256:14e0bc6c3291bf6e9518cae71297359a975961fa3661ed2418806c53bda51bdd[0m
+[0m[[0m[31merror[0m] [0m[0m#3 DONE 1.7s[0m
+[0m[[0m[31merror[0m] [0m[0m#4 [mainstage 1/5] FROM docker.io/library/openjdk:8@sha256:86e863cc57215cfb181bd319736d0baf625fe8f150577f9eb58bd937f5452cb8[0m
+[0m[[0m[31merror[0m] [0m[0m#4 sha256:a0b751d2f75c9def6e19a6fd177c33234e15590d38572fe4d9a9a5c80efca77c[0m
+[0m[[0m[31merror[0m] [0m[0m#4 DONE 0.0s[0m
+[0m[[0m[31merror[0m] [0m[0m#8 [internal] load build context[0m
+[0m[[0m[31merror[0m] [0m[0m#8 sha256:cf5e240dca340ba8bbc38da89edec49ef75a5c934878553cce384db788abb4de[0m
+[0m[[0m[31merror[0m] [0m[0m#8 transferring context: 25.13kB 0.0s done[0m
+[0m[[0m[31merror[0m] [0m[0m#8 DONE 0.0s[0m
+[0m[[0m[31merror[0m] [0m[0m#13 [stage0 7/7] RUN ["chmod", "u+x,g+x", "/4/opt/docker/bin/parallel_t-sne"][0m
+[0m[[0m[31merror[0m] [0m[0m#13 sha256:16a78f339e4fb2190c7b83b8306da120467c40e1bd14b8bd839922b6dd546597[0m
+[0m[[0m[31merror[0m] [0m[0m#13 CACHED[0m
+[0m[[0m[31merror[0m] [0m[0m#5 [mainstage 2/5] RUN id -u demiourgos728 1>/dev/null 2>&1 || (( getent group 0 1>/dev/null 2>&1 || ( type groupadd 1>/dev/null 2>&1 && groupadd -g 0 root || addgroup -g 0 -S root )) && ( type useradd 1>/dev/null 2>&1 && useradd --system --create-home --uid 1001 --gid 0 demiourgos728 || adduser -S -u 1001 -G root demiourgos728 ))[0m
+[0m[[0m[31merror[0m] [0m[0m#5 sha256:46384d4e5c9583bfcebd1ea8fbf6b142a937e1b629dda240470088d1c883747f[0m
+[0m[[0m[31merror[0m] [0m[0m#5 CACHED[0m
+[0m[[0m[31merror[0m] [0m[0m#12 [stage0 6/7] RUN ["chmod", "-R", "u=rX,g=rX", "/4/opt/docker"][0m
+[0m[[0m[31merror[0m] [0m[0m#12 sha256:566fbd569face4734577fd72680dd311dbcc83593f45c954372c583ad403684c[0m
+[0m[[0m[31merror[0m] [0m[0m#12 CACHED[0m
+[0m[[0m[31merror[0m] [0m[0m#7 [stage0 2/7] WORKDIR /opt/docker[0m
+[0m[[0m[31merror[0m] [0m[0m#7 sha256:ac181449192e19b81ac93824727cb0ef74e8cd089d3950a6f6b72ead4dee8c8a[0m
+[0m[[0m[31merror[0m] [0m[0m#7 CACHED[0m
+[0m[[0m[31merror[0m] [0m[0m#9 [stage0 3/7] COPY 2/opt /2/opt[0m
+[0m[[0m[31merror[0m] [0m[0m#9 sha256:a928d6f70c4fe3f5882eadc83e1a42eb7d5b480a74b3ab2e04c9ece8f2e54d65[0m
+[0m[[0m[31merror[0m] [0m[0m#9 CACHED[0m
+[0m[[0m[31merror[0m] [0m[0m#10 [stage0 4/7] COPY 4/opt /4/opt[0m
+[0m[[0m[31merror[0m] [0m[0m#10 sha256:b131d36c1b82017bf5269903454d8cf0ecbf95a80d07b21c02355c39aba12384[0m
+[0m[[0m[31merror[0m] [0m[0m#10 CACHED[0m
+[0m[[0m[31merror[0m] [0m[0m#14 [mainstage 4/5] COPY --from=stage0 --chown=demiourgos728:root /2/opt/docker /opt/docker[0m
+[0m[[0m[31merror[0m] [0m[0m#14 sha256:ff56a8af12800776e3ef17ed1a3babed628e7e66837ee3a37ea74ddcac204937[0m
+[0m[[0m[31merror[0m] [0m[0m#14 CACHED[0m
+[0m[[0m[31merror[0m] [0m[0m#6 [mainstage 3/5] WORKDIR /opt/docker[0m
+[0m[[0m[31merror[0m] [0m[0m#6 sha256:c02a719fbe177d01a156138f3da34b80a6680a86b792c101684669041fb16db2[0m
+[0m[[0m[31merror[0m] [0m[0m#6 CACHED[0m
+[0m[[0m[31merror[0m] [0m[0m#11 [stage0 5/7] RUN ["chmod", "-R", "u=rX,g=rX", "/2/opt/docker"][0m
+[0m[[0m[31merror[0m] [0m[0m#11 sha256:39ecf1e5fd3f4658f2f44dd59ca179c68291ca17e3baa4e6dd5e6b818287d951[0m
+[0m[[0m[31merror[0m] [0m[0m#11 CACHED[0m
+[0m[[0m[31merror[0m] [0m[0m#15 [mainstage 5/5] COPY --from=stage0 --chown=demiourgos728:root /4/opt/docker /opt/docker[0m
+[0m[[0m[31merror[0m] [0m[0m#15 sha256:17baa2783a4f29f975987c69f83c6c9a1a18c863915bc95c709b08c766f9762f[0m
+[0m[[0m[31merror[0m] [0m[0m#15 CACHED[0m
+[0m[[0m[31merror[0m] [0m[0m#16 exporting to image[0m
+[0m[[0m[31merror[0m] [0m[0m#16 sha256:e8c613e07b0b7ff33893b694f7759a10d42e180f2b4dc349fb57dc6b71dcab00[0m
+[0m[[0m[31merror[0m] [0m[0m#16 exporting layers done[0m
+[0m[[0m[31merror[0m] [0m[0m#16 writing image sha256:8812395ce23f6f9ea3612c012662c8ce5ad99e13d8dfb50146c8ed2455e36bfa done[0m
+[0m[[0m[31merror[0m] [0m[0m#16 naming to docker.io/library/parallel_t-sne:0.1.0-SNAPSHOT done[0m
+[0m[[0m[31merror[0m] [0m[0m#16 DONE 0.0s[0m
+[0m[[0m[31merror[0m] [0m[0mUse 'docker scan' to run Snyk tests against images to find vulnerabilities and learn how to fix them[0m
+[0m[[0m[0minfo[0m] [0m[0mRemoving intermediate image(s) (labeled "snp-multi-stage-id=505cc15c-cc9d-4c36-b0d4-e7008a179e64") [0m
+[0m[[0m[0minfo[0m] [0m[0mTotal reclaimed space: 0B[0m
+[0m[[0m[0minfo[0m] [0m[0mBuilt image parallel_t-sne with tags [0.1.0-SNAPSHOT][0m
