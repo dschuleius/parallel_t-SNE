@@ -13,6 +13,8 @@ import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.linalg.distributed.RowMatrix
 import org.apache.spark.rdd.RDD
 
+import java.io.File
+
 object ScalaImplementation {
 
   // set up Spark, changing to local host.
@@ -41,12 +43,12 @@ object ScalaImplementation {
     data
   }
 
-  val sampleSize: Int = 100
+  val sampleSize: Int = 10
   // calling sc.parallelize to create 2 RDDs from textfile.
   // relative path does not work, probably problem with SBT folder structure
   val toRDDTime = System.nanoTime()
 //  val MNISTlabels = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_labels.txt", sampleSize))
-  val MNISTdata: RDD[Array[Double]] = sc.parallelize(importData("/Users/anani/Code/parallel_t-SNE/data/mnist2500_X.txt", sampleSize))
+  val MNISTdata: RDD[Array[Double]] = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", sampleSize))
   println("To RDD time for " + sampleSize + " samples: " + (System.nanoTime - toRDDTime)/1000000 + "ms")
 
   // testing
@@ -287,6 +289,10 @@ object ScalaImplementation {
           iY.update(i, j, new_iY)
 
           Ymat.update(i, j, Ymat(i, j) + new_iY) // Y += iY
+
+          // check if the pathname works!
+          breeze.linalg.csvwrite(new File("data/exportYmat_" + iter.toString + ".txt"), Ymat, separator = ',')
+
 
       }
     }
