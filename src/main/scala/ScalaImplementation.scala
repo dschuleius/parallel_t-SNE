@@ -89,8 +89,6 @@ object ScalaImplementation {
     differences
   }
 
-  println("Testing pairwiseDistances function: ")
-  //println(pairwiseDistances(MNISTdata))
 
 
   /*
@@ -133,14 +131,11 @@ object ScalaImplementation {
    */
 
 
-  // testing computeSimilarityScoreGauss
-  println("Testing computeSimilarityGauss function:")
-  //println(computeSimilarityScoresGauss(pairwiseDistances(MNISTdata), sigma = 1))
 
   case class VectorAndNorm(vector: Vector[Double], norm: Double)
 
 
-  def Hbeta(D: DenseVector[Double], beta: Double = 1.0): (Double, DenseVector[Double]) = {
+  def entropyBeta(D: DenseVector[Double], beta: Double = 1.0): (Double, DenseVector[Double]) = {
     val P: DenseVector[Double] = exp(-D * beta) // beta = 1 / 2 * sigma_i
     val sumP = sum(P)
     if (sumP == 0) {
@@ -153,8 +148,8 @@ object ScalaImplementation {
 
 
   def computeSimilarityScoresGauss(X: RDD[Array[Double]], tol: Double = 1e-5, perplexity: Double = 30.0): RDD[((Int, Int), Double)] = {
-    require(tol >= 0, "Tolerance must be non-negative")
-    require(perplexity > 0, "Perplexity must be positive")
+    assert(tol >= 0, "Tolerance must be non-negative")
+    assert(perplexity > 0, "Perplexity must be positive")
 
     val ntop = (3 * perplexity).toInt
     val logU = Math.log(perplexity)
@@ -179,7 +174,7 @@ object ScalaImplementation {
           var beta = 1.0
 
           val d = DenseVector(arr.map(_._2))
-          var (h, p) = Hbeta(d, beta)
+          var (h, p) = entropyBeta(d, beta)
 
           // evaluate if perplexity is within tolerance
           def Hdiff: Double = h - logU
@@ -196,7 +191,7 @@ object ScalaImplementation {
             }
 
             // recompute the values
-            val (h, p) = Hbeta(d, beta)
+            val (h, p) = entropyBeta(d, beta)
 
             numtries = numtries + 1
           }
@@ -216,8 +211,6 @@ object ScalaImplementation {
   // computation, "normSimilarities" containing the Similarity Scores in the low-dim. representation.
   // computes n x n entries
   def computeSimilarityScoresT(distances: RDD[((Int, Int), Double)], sampleSize: Int): (RDD[((Int, Int), Double)], RDD[((Int, Int), Double)]) = {
-
-    // println("computeSimilarityScoresT started with input distances matrix of dimensions: " + distances.map(_._1._1).reduce(math.max).toString + " x " + distances.map(_._1._2).reduce(math.max).toString)
 
     val num = distances.map { case ((i, j), d) =>
       ((i, j), (1.0 / (1 + scala.math.pow(d, 2))))
@@ -240,7 +233,6 @@ object ScalaImplementation {
     val joinedUnnormSimWithDenom = unnormSimilaritiesWithDenominator.join(flippedUnnormSimWithDenom)
     val normSimilarities = joinedUnnormSimWithDenom.mapValues { case (s1, s2) => (s1 + s2) / (2 * sampleSize) }
 
-
     (normSimilarities, num)
 
   }
@@ -251,35 +243,19 @@ object ScalaImplementation {
   def mlPCA(data: RDD[Array[Double]], k: Int = 50): RDD[Array[Double]] = {
     val rows = data.map(x => Vectors.dense(x))
     val mat = new RowMatrix(rows)
-    println("Checkpoint 1: Matrix creation")
     // Compute the top k principal components.
-    // Principal components are stored in a local dense matrix.
+    // PCs are stored in a local dense matrix.
     val pc = mat.computePrincipalComponents(k)
-    println("Checkpoint 2: PC")
 
-    // Project the rows to the linear space spanned by the top 4 principal components.
+    // project the rows to the linear space spanned by the top 4 principal components.
     val projected: RowMatrix = mat.multiply(pc)
-    println("Checkpoint 3: projected")
-
     val projectedRDD: RDD[Array[Double]] = projected.rows.map(_.toArray)
-    println("Checkpoint 4: projectedRDD")
 
     projectedRDD
   }
 
-  println("Testing builtin PCA function:")
-  //println(mlPCA(MNISTdata).foreach(arr => println(arr.mkString(","))))
-
-  /*
-  def stackVector(vector: DenseVector[Double], n: Int): DenseMatrix[Double] = {
-    DenseMatrix.tabulate[Double](n, vector.size)((i, j) => vector(j))
-  }
-  */
 
 
-
-
-  // GD optimization is inherently sequential, hence we use a DenseMatrix collection to handle the data.
   def tSNEsimple(X: RDD[Array[Double]], // dims already reduced using mlPCA
                  k: Int = 2, // number target dims after t-SNE has been applied to the data
                  max_iter: Int = 200,
@@ -367,10 +343,9 @@ object ScalaImplementation {
       dCdYRDD.unpersist(blocking = true)
 
       // visualization: collect YRDD and transform to DenseMatrix to be able to print:
-      // TODO this only produces one column instead of 2
       if (export) {
-        val exportYRDD = YRDD.coalesce(1).groupByKey().map{ case (key, values) => (key, values.mkString(", ")) }
-        exportYRDD.map{ case ((i, j), str) => str }.saveAsTextFile("data/exportYRDD_" + iter.toString + ".txt")
+        val exportYRDD = YRDD.coalesce(1).map{ case ((i, j), d) => (i, d)}.groupByKey().map{ case (row, values) => (row, values.mkString(", ")) }
+        exportYRDD.map{ case (i, str) => str }.saveAsTextFile("data/exportIter_" + iter.toString)
       }
 
 
@@ -429,20 +404,20 @@ object ScalaImplementation {
     println("To RDD time for " + sampleSize + " samples: " + (System.nanoTime - toRDDTime) / 1000000 + "ms")
 
     for {
-      files <- Option(new File("data/").listFiles)
-      file <- files if file.getName.startsWith("exportYRDD_")
+      files <- Option(new File("data/export/").listFiles)
+      file <- files if file.getName.startsWith("exportIter_")
     } file.delete()
 
     // testing tSNEsimple
     val totalTime = System.nanoTime()
     val MNISTdataPCA = mlPCA(MNISTdata)
 
-    val YmatOptimized = tSNEsimple(MNISTdataPCA, sampleSize = sampleSize, max_iter = 10, `export` = false)
+    val YmatOptimized = tSNEsimple(MNISTdataPCA, sampleSize = sampleSize, max_iter = 10, `export` = true)
 
     println("Total time: " + (System.nanoTime - totalTime) / 1000000 + "ms")
   }
 
-  // TODO visualization: wrong results, x and y values equal for all points
+  // TODO visualization: wrong results, no clusters appear, after first iteration very little movement.
   // TODO logger function, code cleanup, .jar SBT build
 }
 
