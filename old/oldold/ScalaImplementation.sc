@@ -243,6 +243,41 @@ def pca(data: Array[Array[Double]], k: Int): Array[Array[Double]] = {
   projDataArray
 }
 
+// stick to builtin PCA function, this is just backup
+
+def initialPCARDD(data: RDD[Array[Double]], k: Int = 2): RDD[Array[Double]] = {
+  // assert non-empty RDD and no empty rows
+
+  // Convert data to breeze DenseMatrix
+  val dataMatrix = DenseMatrix(data.map(row => DenseVector(row)).collect(): _*)
+
+
+  // Calculate column mean as vector of sum of columns multiplied by 1/#rows
+  // Element-wise division is not implemented as it seems, so use mult. by inverse.
+  // Subtract column means from respective column entries in dataMatrix
+  val meanVector = sum(dataMatrix(::, *)) *:* (1.0 / dataMatrix.rows.toDouble)
+  val centeredDataMatrix = dataMatrix(*, ::).map(row => (row - meanVector.t))
+
+  // Compute covariance matrix (symmetric).
+  val covMatrix = breeze.linalg.cov(centeredDataMatrix)
+
+  // Compute eigenvalues and eigenvectors of covariance matrix.
+  val es = eigSym(covMatrix)
+
+  // Sort eigenvalues and eigenvectors in descending order.
+  val sortedEigenVectors = sortColumns(es.eigenvectors, es.eigenvalues)
+
+  // Project data onto top k eigenvectors (change-of-basis).
+  // choose top k eigenvectors
+  val topEigenVectors = sortedEigenVectors(::, 0 until k)
+  val projectedData = (topEigenVectors.t * centeredDataMatrix.t).t
+
+  // Convert projected data back to Array[Array[Double]]
+  val projDataRDD = sc.parallelize(dmToArray2(projectedData))
+
+  projDataRDD
+}
+
 
 // testing pca function
 val pcaMNISTdata: Array[Array[Double]] = pca(MNISTdata, k = 2)
