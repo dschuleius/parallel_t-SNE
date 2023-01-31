@@ -2,7 +2,7 @@ library(dplyr)
 library(ggplot2)
 library(animation)
 
-for (n in 1:10) {
+for (n in 1:20) {
   folder_path <- paste0("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/exportIter_", n)
   old_file_path <- paste0(folder_path, "/part-00000")
   if (file.exists(old_file_path)) {
@@ -45,10 +45,11 @@ showPlot <- function(pl) {
 }
 
 # plot
-for (i in seq_along(results)) {
-  print(showPlot(i))
-  readline(prompt = "Press [enter] for next step.")
-}
+
+# for (i in seq_along(results)) {
+#   print(showPlot(i))
+#   readline(prompt = "Press [enter] for next step.")
+# }
 
 
 # combine plots to animation
