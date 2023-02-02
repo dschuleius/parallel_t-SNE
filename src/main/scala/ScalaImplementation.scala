@@ -153,20 +153,26 @@ object ScalaImplementation {
 
     val ntop = (5 * perplexity).toInt
     val logU = Math.log(perplexity)
-    val norms = X.map{ case (arr) => Vectors.norm(Vectors.dense(arr), 2.0)}
+    val norms = X.map { case (arr) => Vectors.norm(Vectors.dense(arr), 2.0) }
     val rowsWithNorm = X.zip(norms).map { case (v, norm) => VectorAndNorm(DenseVector(v), norm) }
-    val distancestest = rowsWithNorm.zipWithIndex()
+    val distances = rowsWithNorm.zipWithIndex()
       .cartesian(rowsWithNorm.zipWithIndex())
       .flatMap {
         case ((u, i), (v, j)) =>
           if (i < j) {
             val dist = math.pow(euclideanDistance(u.vector.toArray, v.vector.toArray), 2)
             Seq((i, (j, dist)), (j, (i, dist)))
-          } else Seq.empty
+          } else if (i == j) {
+            Seq((i, (i, 0.0)))
+          } else {
+            Seq.empty
+          }
       }
-    //distancestest.foreach(entry => println(s"(${entry._1}, ${entry._2._1}) = ${entry._2._2}"))
-    val distances = distancestest.topByKey(ntop)  //(ntop)(Ordering.by(e => - e._2)) //returns the top k (largest) elements for each key from this RDD
-
+    .groupByKey() //.topByKey(ntop)(Ordering.by(e => - e._2)) //returns the top k (largest) elements for each key from this RDD
+    /*
+    distances.foreach{ case (key, itable) => itable.foreach{case (innerKey, innerVal) =>
+    println(s"($key, ($innerKey, $innerVal))")}}
+    */
 
     val p_betas =
       distances.map {
@@ -175,14 +181,16 @@ object ScalaImplementation {
           var betamax = Double.PositiveInfinity
           var beta = 1.0
 
-          val d = DenseVector(arr.map(_._2))
-          val (h, p) = entropyBeta(d, beta)
+          val d = DenseVector(arr.map(_._2).toArray)
+          //println(d)
+          var (h, p) = entropyBeta(d, beta)
 
           // evaluate if perplexity is within tolerance
-          def Hdiff: Double = h - logU
-
+          var Hdiff: Double = h - logU
           var numtries = 0
+
           while (Math.abs(Hdiff) > tol && numtries < 50) {
+            //println("In iteration " + numtries.toString + " , beta is " + beta.toString)
             // if not, increase or decrease precision
             if (Hdiff > 0) {
               betamin = beta
@@ -193,8 +201,11 @@ object ScalaImplementation {
             }
 
             // recompute the values
-            val (h, p) = entropyBeta(d, beta)
-
+            val hp = entropyBeta(d, beta)
+            h = hp._1
+            p = hp._2
+            //println("In iteration " + numtries.toString + " , thisP is " + p.toString)
+            Hdiff = h - logU
             numtries = numtries + 1
           }
 
@@ -202,9 +213,9 @@ object ScalaImplementation {
           arr.map(_._1).zip(p.toArray).map { case (j, v) => MatrixEntry(i, j, v) }
       }
 
-    val Punnorm = new CoordinateMatrix(p_betas.flatMap(array => array))
-      .entries.map{ case MatrixEntry(i, j, v) => ((i.toInt, j.toInt), v) }
-      /*
+    val Punnorm = new CoordinateMatrix(p_betas.flatMap(me => me))
+    .entries.map{ case MatrixEntry(i, j, v) => ((i.toInt, j.toInt), v) }
+    /*
       .entries
       .flatMap(e => Seq(
         ((e.i.toInt, e.j.toInt), e.value),
@@ -312,7 +323,8 @@ object ScalaImplementation {
 
     while (iter < max_iter) {
 
-      // compute gradient: insert into every row of dCdy_i = 4*sum_j(p_ij - q_ij)(y_i - y_j) * (1 + L2)^-1
+      // compute gradient: insert into every row of dCdy_i = 4 * \sum_j(p_{ij} - q_{ij})(y_i - y_j) * (1 + L2)^-1
+      // 4 * \sum_j (p_{ij} - q_{ij})(y_i - y_j)(1 + ||y_i - y_j||^2)^{-1}
       // see equation (5) in the original paper: https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf
       // y points are points in the low-dim space that are moved into clusters by the optimization.
 
@@ -441,7 +453,7 @@ object ScalaImplementation {
 
   // Define main function
   def main(args: Array[String]): Unit = {
-    val sampleSize: Int = 10
+    val sampleSize: Int = 300
 
     val toRDDTime = System.nanoTime()
     val MNISTdata: RDD[Array[Double]] = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", sampleSize))
@@ -460,6 +472,10 @@ object ScalaImplementation {
         val col = i % 2
         ((row, col), List(1.0, 2, 3, 4, 5, 6, 7, 8, 9, 10)(i))
       }
+
+    val testX = Array(Array(1.0, 2.0), Array(3.0, 4), Array(5.0, 6), Array(7.0, 8), Array(9.0, 10))
+    val testXRDD = sc.parallelize(testX)
+
     //testYRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
     /*
@@ -474,15 +490,15 @@ object ScalaImplementation {
     println("Is num empty? " + numT.isEmpty().toString + ". It has dimension: " + numT.map(_._1._1).reduce(math.max).toString + " x " + numT.map(_._1._2).reduce(math.max).toString )
     */
 
-    //computeSimilarityScoresGauss(MNISTdata, n = sampleSize).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+    computeSimilarityScoresGauss(testXRDD, n = sampleSize).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
-    //val YmatOptimized = tSNEsimple(MNISTdataPCA, sampleSize = sampleSize, max_iter = 1, `export` = false)
+    // val YmatOptimized = tSNEsimple(MNISTdataPCA, sampleSize = sampleSize, max_iter = 200, `export` = true)
 
-
+    /*
     val PRDD = computeSimilarityScoresGauss(MNISTdata, n = sampleSize)
     println("This is PRDD:")
     PRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
-
+    */
 
 
     println("Total time: " + (System.nanoTime - totalTime) / 1000000 + "ms")
