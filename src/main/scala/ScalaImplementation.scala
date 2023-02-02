@@ -21,7 +21,7 @@ object ScalaImplementation {
     .setMaster("local[*]")
     .set("spark.driver.host", "127.0.0.1")
     .set("spark.driver.bindAddress", "127.0.0.1")
-    //.set("spark.sql.shuffle.partitions", "2")
+    //.set("spark.sql.shuffle.partitions", "10")
   val sc = new SparkContext(conf)
   // Show only Error and not Info messages
   sc.setLogLevel("ERROR")
@@ -63,10 +63,10 @@ object ScalaImplementation {
         case ((i, u), (j, v)) =>
           if (i < j) {
             val dist = euclideanDistance(u, v)
-            Seq(((i.toInt, j.toInt), dist), ((j.toInt, i.toInt), dist))
+            Seq(((i, j), dist), ((j, i), dist))
           } else if (i == j) {
             val dist = 0.0
-            Seq(((i.toInt, j.toInt), dist))
+            Seq(((i, j), dist))
           } else Seq.empty
     }
     distances
@@ -81,7 +81,7 @@ object ScalaImplementation {
         case ((i, u), (j, v)) =>
           if (i < j) {
             val dist = u.zip(v).map{ case (a,b) => a - b}
-            Seq(((i.toInt, j.toInt), dist), ((j.toInt, i.toInt), dist))
+            Seq(((i, j), dist), ((j, i), dist))
           //} else if (i == j) {
           //  Seq(((i.toInt, i.toInt), Array.fill(k)(0.0)))
         } else Seq.empty
@@ -153,7 +153,7 @@ object ScalaImplementation {
 
     val ntop = (5 * perplexity).toInt
     val logU = Math.log(perplexity)
-    val norms = X.map { case (arr) => Vectors.norm(Vectors.dense(arr), 2.0) }
+    val norms = X.map{ arr => Vectors.norm(Vectors.dense(arr), 2.0) }
     val rowsWithNorm = X.zip(norms).map { case (v, norm) => VectorAndNorm(DenseVector(v), norm) }
     val distances = rowsWithNorm.zipWithIndex()
       .cartesian(rowsWithNorm.zipWithIndex())
@@ -168,11 +168,8 @@ object ScalaImplementation {
             Seq.empty
           }
       }
-    .groupByKey() //.topByKey(ntop)(Ordering.by(e => - e._2)) //returns the top k (largest) elements for each key from this RDD
-    /*
-    distances.foreach{ case (key, itable) => itable.foreach{case (innerKey, innerVal) =>
-    println(s"($key, ($innerKey, $innerVal))")}}
-    */
+    .groupByKey()
+
 
     val p_betas =
       distances.map {
@@ -225,8 +222,7 @@ object ScalaImplementation {
       .map { case ((i, j), v) => ((i, j), math.max( v / 2 / n, 1e-12)) } // p / 2n
       .groupByKey()
       .map{ case ((i, j), itble) => ((i, j), itble.sum) }
-
-
+    */
 
     val P_t = Punnorm.map { case ((i, j), v) => ((j, i), v) }
     val PP_t = Punnorm.union(P_t)
@@ -235,8 +231,8 @@ object ScalaImplementation {
     val PP_tsum = PP_t.map(_._2).reduce(_ + _)
 
     val P = PP_t.map { case ((i, j), d) => ((i, j), d / PP_tsum) }
-    */
-    Punnorm
+
+    P
   }
 
 
@@ -245,7 +241,7 @@ object ScalaImplementation {
 
     val num = distances.map { case ((i, j), d) =>
       if (i != j) {
-        ((i, j), (1.0 / (1.0 + scala.math.pow(d, 2))))
+        ((i, j), 1.0 / (1.0 + scala.math.pow(d, 2)))
     } else {
         ((i, j), 0.0)
       }
@@ -287,35 +283,35 @@ object ScalaImplementation {
                  partitions: Int = 2, // set to number of CPU cores available
                  export: Boolean = false,
                  lr: Double = 500,
-                 minimumgain: Double = 0.1,
-                 sampleSize: Int = 10):
+                 minimumgain: Double = 0.01,
+                 sampleSize: Int):
   RDD[((Int, Int), Double)] = {
 
     // initialize variable
     val initVarTime = System.nanoTime()
-    val n: Int = sampleSize
-    // val diagonalRDD = sc.parallelize((0 until n).map(i => (i, i) -> 1.0))
     val rand = new Random(123)
-    val YRDDnotparallel = (0 until n).map{ _ => Array.tabulate(k)( _ => rand.nextGaussian()) } // initialize randomly from standard gaussian, issue SysTime
-    var momRDD: RDD[((Int, Int), Double)] = sc.parallelize(0 until n * k)
+    // val YRDDnotparallel = (0 until sampleSize).map{ _ => Array.tabulate(k)( _ => rand.nextGaussian()) } // initialize randomly from standard gaussian, issue SysTime
+    var momRDD: RDD[((Int, Int), Double)] = sc.parallelize(0 until sampleSize * k)
       .map{ i =>
         val row = i / k
         val col = i % k
         ((row, col), 0.0)
       }.partitionBy(new HashPartitioner(partitions = partitions))
-    var YRDD = sc.parallelize(0 until n * k)
+    var YRDD = sc.parallelize(0 until sampleSize * k)
       .map { i =>
         val row = i / k
         val col = i % k
         ((row, col), randn())
       }.partitionBy(new HashPartitioner(partitions = partitions))
-    val gains = DenseMatrix.ones[Double](n, k)
+    val gains = DenseMatrix.ones[Double](sampleSize, k)
 
     println("First 10 rows of YRDD after initialization: ")
     YRDD.take(10).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
-    // YRDD.foreach(arr => println(arr.mkString(",")))
-    val PRDD = computeSimilarityScoresGauss(X, n = n).partitionBy(new HashPartitioner(partitions = partitions))
+    val PRDD = computeSimilarityScoresGauss(X, n = sampleSize).partitionBy(new HashPartitioner(partitions = partitions))
+    PRDD
+      .map { case ((i, j), p) => ((i, j), 4.0 * p) } //early exaggeration
+      .map { case ((i, j), p) => ((i, j), math.max(p, 1e-12))}
     println("Initialization done, YRDD has dimensions: " + YRDD.map(_._1._1).reduce(math.max).toString + " x " + YRDD.map(_._1._2).reduce(math.max).toString)
     println("Is PRDD empty? " + PRDD.isEmpty().toString +". It has dimension: " + PRDD.map(_._1._1).reduce(math.max).toString + " x " + PRDD.map(_._1._2).reduce(math.max).toString )
 
@@ -323,32 +319,32 @@ object ScalaImplementation {
 
     while (iter < max_iter) {
 
-      // compute gradient: insert into every row of dCdy_i = 4 * \sum_j(p_{ij} - q_{ij})(y_i - y_j) * (1 + L2)^-1
-      // 4 * \sum_j (p_{ij} - q_{ij})(y_i - y_j)(1 + ||y_i - y_j||^2)^{-1}
+      // compute gradient: insert into every row of dCdy_i = 4 * \sum_j (p_{ij} - q_{ij})(y_i - y_j)(1 + ||y_i - y_j||^2)^{-1}
       // see equation (5) in the original paper: https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf
       // y points are points in the low-dim space that are moved into clusters by the optimization.
 
       println("Starting iteration number " + iter.toString + ".")
 
-      val simscoresYRDD = computeSimilarityScoresT(pairwiseDistancesFaster(YRDD), sampleSize = n, partitions = partitions)
+      val simscoresYRDD = computeSimilarityScoresT(pairwiseDistancesFaster(YRDD), sampleSize = sampleSize, partitions = partitions)
       val QRDD = simscoresYRDD._1.partitionBy(new HashPartitioner(partitions = partitions))
+      QRDD.map { case ((i, j), q) => ((i, j), math.max(q, 1e-12))}
       val num = simscoresYRDD._2.partitionBy(new HashPartitioner(partitions = partitions))
       QRDD.cache()
       num.cache()
 
       println("QRDD and num done for iteration number " + iter.toString + ".")
 
-      val PQRDD = PRDD.join(QRDD).map { case ((i, j), (p, q)) => ((i, j), (p - q)) }
-      println("Is PQRDD empty in iteration number " + iter.toString + "?" + PQRDD.isEmpty().toString + ". It has dimension: " + PQRDD.map(_._1._1).reduce(math.max).toString + " x " + PQRDD.map(_._1._2).reduce(math.max).toString )
-      println(" PQRDD looks like this after iteration " + iter.toString)
+      val PQRDD = PRDD.join(QRDD).map { case ((i, j), (p, q)) => ((i, j), p - q) }
+      //println("Is PQRDD empty in iteration number " + iter.toString + "?" + PQRDD.isEmpty().toString + ". It has dimension: " + PQRDD.map(_._1._1).reduce(math.max).toString + " x " + PQRDD.map(_._1._2).reduce(math.max).toString )
+      //println(" PQRDD looks like this after iteration " + iter.toString)
       PQRDD.take(10).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
       PQRDD.cache()
 
       val ydiff = pairwiseDistancesFasterGrad(YRDD, k = k).partitionBy(new HashPartitioner(partitions = partitions))
-      println("Is ydiff empty? " + ydiff.isEmpty().toString + ". It has dimension: " + ydiff.map(_._1._1).reduce(math.max).toString + " x " + ydiff.map(_._1._2).reduce(math.max).toString )
+      //println("Is ydiff empty? " + ydiff.isEmpty().toString + ". It has dimension: " + ydiff.map(_._1._1).reduce(math.max).toString + " x " + ydiff.map(_._1._2).reduce(math.max).toString )
       ydiff.cache()
-      println(" ydiff looks like this after iteration " + iter.toString)
-      ydiff.take(10).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+      //println(" ydiff looks like this after iteration " + iter.toString)
+      //ydiff.take(10).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
       val dCdYRDD = PQRDD.join(num).join(ydiff).map{ case ((i, j), ((pq, num), diff)) => ((i, j), diff.map(_ * 4.0 * pq * num))}
         .map{ case ((i, j), comp) => (i, comp) }
@@ -356,20 +352,19 @@ object ScalaImplementation {
         .mapValues(arrays => arrays.reduce((a, b) => a.zip(b).map{ case (x, y) => x + y }))
         .flatMap{ case (key, values) => values.zipWithIndex.map{ case (value, index) => ((key, index), value) } }
       dCdYRDD.cache()
-      println("Is dCdYRDD empty? " + dCdYRDD.isEmpty().toString + ". It has dimension: " + dCdYRDD.map(_._1._1).reduce(math.max).toString + " x " + dCdYRDD.map(_._1._2).reduce(math.max).toString)
+      //println("Is dCdYRDD empty? " + dCdYRDD.isEmpty().toString + ". It has dimension: " + dCdYRDD.map(_._1._1).reduce(math.max).toString + " x " + dCdYRDD.map(_._1._2).reduce(math.max).toString)
 
 
       // Gradient Descent step with momentum
       val momentum = if (iter <= 20) initial_momentum else final_momentum
 
-      val updateRDD = momRDD.join(dCdYRDD).map{ case ((i, j), (oldderiv, currentderiv)) => ((i, j), momentum * oldderiv - lr * (gains(i, j) * currentderiv)) }
 
       gains.foreachPair {
         case ((i, j), old_gain) =>
           val new_gain = math.max(minimumgain,
             if ((dCdYRDD.filter { case ((key1, key2), value) =>
               (key1, key2) == (i, j)
-            }.map(_._2).first() > 0.0) != (updateRDD.filter { case ((key1, key2), value) =>
+            }.map(_._2).first() > 0.0) != (momRDD.filter { case ((key1, key2), value) =>
               (key1, key2) == (i, j)
             }.map(_._2).first() > 0.0))
               old_gain + 0.2
@@ -379,17 +374,37 @@ object ScalaImplementation {
           gains.update(i, j, new_gain)
       }
 
-      println("dCdYRDD looks like this after iteration " + iter.toString)
-      dCdYRDD.take(10).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+      momRDD = momRDD.join(dCdYRDD).map{ case ((i, j), (oldderiv, currentderiv)) => ((i, j), momentum * oldderiv - lr * (gains(i, j) * currentderiv)) }
 
-      YRDD = YRDD.join(updateRDD).map { case ((i, j), (current, update)) => ((i, j), current + update) }
+      //println("dCdYRDD looks like this after iteration " + iter.toString)
+      //dCdYRDD.take(10).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+
+      // apply update
+      YRDD = YRDD.join(momRDD).map { case ((i, j), (current, update)) => ((i, j), current + update) }
+      //println("YRDD looks like this BEFORE centering:")
+      //YRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+
+
+      // subtract the mean of each column from each corresponding element in the column
+      val YRDDColSumsMap = YRDD
+        .map{ case ((row, col), value) => (col, value) }
+        .reduceByKey(_ + _)
+        .collect()
+        .toMap
+      //println("YRDDColSums (iteration: " + iter.toString + " ) looks like this: ")
+      YRDD = YRDD.map{case ((i, j), y) => ((i, j), y - (YRDDColSumsMap(j) / sampleSize.toDouble))}
 
       println("Finishing iteration number " + iter.toString + ".")
-      println("YRDD has the following dimensions after iteration number " + iter.toString + ": " + YRDD.map(_._1._1).reduce(math.max).toString + " x " + YRDD.map(_._1._2).reduce(math.max).toString)
-      println("Is YRDD empty after iteration number " + iter.toString + "? " + YRDD.isEmpty().toString)
-      YRDD.take(10).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+      //println("YRDD has the following dimensions after iteration number " + iter.toString + ": " + YRDD.map(_._1._1).reduce(math.max).toString + " x " + YRDD.map(_._1._2).reduce(math.max).toString)
+      //println("Is YRDD empty after iteration number " + iter.toString + "? " + YRDD.isEmpty().toString)
+      //YRDD.take(10).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
       iter = iter + 1
+
+      // stop early exaggeration from iter 100 onwards
+      if (iter == 100) {
+        PRDD.map{ case ((i, j), p) => ((i, j), p/4.0) }
+      }
 
       //simscoresYRDD.unpersist()
       QRDD.unpersist(blocking = true)
@@ -453,7 +468,7 @@ object ScalaImplementation {
 
   // Define main function
   def main(args: Array[String]): Unit = {
-    val sampleSize: Int = 300
+    val sampleSize: Int = 1000
 
     val toRDDTime = System.nanoTime()
     val MNISTdata: RDD[Array[Double]] = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", sampleSize))
@@ -465,7 +480,7 @@ object ScalaImplementation {
     val MNISTdataPCA = mlPCA(MNISTdata)
 
 
-
+    /*
     val testYRDD = sc.parallelize(0 until 5 * 2)
       .map { i =>
         val row = i / 2
@@ -478,7 +493,7 @@ object ScalaImplementation {
 
     //testYRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
-    /*
+
     println("normSimilarities, so Q, looks like this:")
     val normSimT = computeSimilarityScoresT(pairwiseDistancesFaster(testYRDD), sampleSize = 5, partitions = 2)._1
     normSimT.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
@@ -490,9 +505,9 @@ object ScalaImplementation {
     println("Is num empty? " + numT.isEmpty().toString + ". It has dimension: " + numT.map(_._1._1).reduce(math.max).toString + " x " + numT.map(_._1._2).reduce(math.max).toString )
     */
 
-    computeSimilarityScoresGauss(testXRDD, n = sampleSize).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+    // computeSimilarityScoresGauss(testXRDD, n = sampleSize).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
-    // val YmatOptimized = tSNEsimple(MNISTdataPCA, sampleSize = sampleSize, max_iter = 200, `export` = true)
+    val YmatOptimized = tSNEsimple(MNISTdataPCA, sampleSize = sampleSize, max_iter = 20, `export` = true)
 
     /*
     val PRDD = computeSimilarityScoresGauss(MNISTdata, n = sampleSize)
@@ -504,7 +519,7 @@ object ScalaImplementation {
     println("Total time: " + (System.nanoTime - totalTime) / 1000000 + "ms")
   }
 
-  // TODO visualization: wrong results, no clusters appear, after first iteration very little movement.
+  // TODO visualization: wrong results, no clusters appear.
   // TODO logger function, code cleanup, .jar SBT build
 }
 
