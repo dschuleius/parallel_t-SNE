@@ -22,6 +22,11 @@ lazy val root = (project in file("."))
     libraryDependencies += "com.sandinh" %% "scala-collection-compat-lazyzip" % "2.13.1"
   )
 
+assemblyMergeStrategy in assembly := {
+  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+  case x => MergeStrategy.first
+}
+
 
 //enablePlugins(JavaAppPackaging)
 //enablePlugins(DockerPlugin)
