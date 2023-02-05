@@ -254,7 +254,7 @@ object Main {
       .sortByKey()
       .map{ case (index, arr) => (index, Vectors.dense(arr)) }
 
-    val meanVec  = Vectors.dense(rows.map(_._2.toArray).reduce ((a, b) => (a lazyZip b).map(_ + _)).map(_ / sampleSize))
+    val meanVec  = Vectors.dense(rows.map(_._2.toArray).reduce ((a, b) => (a,b).zipped.map(_ + _)).map(_ / sampleSize))
 
     // Subtract the means from each vector in the RDD
     val normalizedVecs: RDD[(Int, Vector)] = rows
@@ -309,21 +309,65 @@ object Main {
       .partitionBy(new HashPartitioner(partitions = partitions))
 
     // testing with non-random Y
-    /*
-    val Y = Array(Array(0.1, -0.2), Array(1.2, 0.8), Array(-0.2, 0.6), Array(-0.9, 0.1), Array(1.3, 0.5))
+
+    //val Y = Array(Array(0.1, -0.2), Array(1.2, 0.8), Array(-0.2, 0.6), Array(-0.9, 0.1), Array(1.3, 0.5))
+    val Y = Array(
+      Array(-1.12870294, -0.83008814),
+      Array(0.07448544, -1.30711223),
+      Array(1.02539386, -0.32798679),
+      Array(0.60880325, -0.59266964),
+      Array(0.34561165, -0.83674335),
+      Array(-0.90895435, -0.02894896),
+      Array(-0.73702659, 1.22795944),
+      Array(0.30497069, -0.33730157),
+      Array(0.01755616, -0.58677067),
+      Array(0.73303266, -0.70495823),
+      Array(-0.57352783, 0.95559499),
+      Array(-0.95133737, 0.41451273),
+      Array(0.35576788, -0.59659931),
+      Array(-0.88165797, 0.70285842),
+      Array(1.46847176, -0.31269423),
+      Array(-0.02516202, 0.84827782),
+      Array(1.54981666, 0.14326029),
+      Array(0.6373717, 0.45151671),
+      Array(-0.12505717, 1.02270182),
+      Array(-0.01494444, 0.78451147),
+      Array(-0.90826369, 0.87060796),
+      Array(-0.26584847, -0.16205853),
+      Array(-0.6810938, 0.54225839),
+      Array(-1.00846689, 0.04482262),
+      Array(-0.09231624, 1.6466729),
+      Array(0.31236914, -0.33153579),
+      Array(0.59300798, 0.76617706),
+      Array(-0.55785569, -0.41471199),
+      Array(-0.46165087, -0.80576489),
+      Array(1.05787231, 0.31475158),
+      Array(-0.46556687, 1.48494896),
+      Array(-1.63585795, 0.64046439),
+      Array(0.73408097, -0.59385824),
+      Array(1.26926492, 0.85999462),
+      Array(0.05963874, -0.82447235),
+      Array(0.08331667, 1.19259051),
+      Array(0.89707891, -0.47827121),
+      Array(0.38673393, -0.63408034),
+      Array(0.12074724, 1.77694826),
+      Array(-0.30570598, 0.53870262))
+
     var YRDD = sc.parallelize(Y).zipWithIndex().flatMap {
       case (values, outerIndex) => values.zipWithIndex.map {
         case (value, innerIndex) => ((outerIndex.toInt, innerIndex), value)
       }
     }
-    */
 
+    /*
     var YRDD = sc.parallelize(0 until sampleSize * k)
       .map { i =>
         val row = i / k
         val col = i % k
         ((row, col), randn())
       }.partitionBy(new HashPartitioner(partitions = partitions))
+
+     */
 
     var gains = DenseMatrix.ones[Double](sampleSize, k)
 
@@ -524,7 +568,7 @@ object Main {
 
   // Define main function
   def main(args: Array[String]): Unit = {
-    val sampleSize: Int = 1000 // SET THIS CORRECTLY
+    val sampleSize: Int = 40 // SET THIS CORRECTLY
     val partitions: Int = 2
 
     val toRDDTime = System.nanoTime()
@@ -532,10 +576,13 @@ object Main {
     //  .sortByKey()
 
     // import numpy array of MNIST values, first 1000 rows, that have been reduced to dim 50 using PCA
-    val MNISTpca_n1000_k50 = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/MNISTpca_n1000_k50", sampleSize))
+    val MNISTpca_n2500_k50 = sc.parallelize(importData("MNISTpca_n2500_k50", sampleSize))
       .sortByKey()
+    println("________________________________")
+    println("This is the imported MNISTpca_n2500_k50 dataset:")
+    MNISTpca_n2500_k50.foreach(t => println(t._1 + " " + t._2.mkString(" ")))
 
-    val MNISTdata = sc.parallelize(importData("mnist2500_X.txt", sampleSize)) // only filename, no path
+    //val MNISTdata = sc.parallelize(importData("mnist2500_X.txt", sampleSize)) // only filename, no path
     println("To RDD time for " + sampleSize + " samples: " + (System.nanoTime - toRDDTime) / 1000000 + "ms")
 
     // testing with small dataset
@@ -549,7 +596,10 @@ object Main {
     //val MNISTdataPCA = mlPCA(testXRDD, reduceTo = 2, sampleSize = sampleSize, partitions = partitions) // reduceTo = 50
     //MNISTdataPCA.sortByKey().foreach(t => println(t._1 + " " + t._2.mkString(" ")))
 
-    val YmatOptimized = tSNE(MNISTpca_n1000_k50, sampleSize = sampleSize, max_iter = 20, `export` = true)
+    val YmatOptimized = tSNE(MNISTpca_n2500_k50, sampleSize = sampleSize, max_iter = 1, `export` = false)
+    println("_______________________________________")
+    println("ENDRESULT YRDD:")
+    YmatOptimized.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
 
 
