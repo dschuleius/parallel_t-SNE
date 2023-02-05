@@ -50,7 +50,7 @@ object ScalaImplementation {
     math.sqrt(squaredDistance)
   }
 
-
+/*
   def pairwiseDistancesFaster(points: RDD[((Int, Int), Double)]): RDD[((Int, Int), Double)] = {
     val zippedPoints = points.map { case ((i, j), d) => (i, d) }
       .groupByKey()
@@ -68,6 +68,7 @@ object ScalaImplementation {
     }
     distances
   }
+ */
 
   def pairwiseDistancesFasterGrad(points: RDD[((Int, Int), Double)]): RDD[((Int, Int), Array[Double])] = {
     val zippedPoints = points
@@ -186,7 +187,7 @@ object ScalaImplementation {
   }
 
 
-
+  /*
   def computeSimilarityScoresT(distances: RDD[((Int, Int), Double)], sampleSize: Int, partitions: Int): (RDD[((Int, Int), Double)], RDD[((Int, Int), Double)]) = {
 
     val num = distances.map { case ((i, j), d) =>
@@ -204,7 +205,7 @@ object ScalaImplementation {
     (Q, num)
 
   }
-
+   */
 
   def sortColumns(matrix: DenseMatrix[Double], vector: DenseVector[Double]): DenseMatrix[Double] = {
     // sort Array in descending order
@@ -246,8 +247,7 @@ object ScalaImplementation {
 
 
   // built-in PCA function
-  // !! DOES NOT PRESERVE ROW ORDER !!
-  def mlPCA(data: RDD[(Int, Array[Double])], reduceTo: Int = 50, sampleSize: Int, partitions: Int): RDD[Array[Double]] = {
+  def mlPCA(data: RDD[(Int, Array[Double])], reduceTo: Int = 50, sampleSize: Int, partitions: Int): RDD[(Int, Array[Double])] = {
     val rows = data
       .sortByKey()
       .map{ case (index, arr) => (index, Vectors.dense(arr)) }
@@ -260,25 +260,30 @@ object ScalaImplementation {
         .map { case (a, b) => a - b }))
     }.sortByKey()
 
-    val arrayData = normalizedVecs.collect().sortWith((a, b) => a._1 < b._1).map(_._2.toArray)
+    val arrayData = normalizedVecs
+      .collect()
+      .sortWith((a, b) => a._1 < b._1)
+      .map(_._2.toArray)
+
     val dmmat = DenseMatrix(arrayData:_*)
     val mat = new RowMatrix(normalizedVecs.map(_._2))
+
     // Compute the top k principal components.
     val pc: Matrix = mat.computePrincipalComponents(reduceTo)
     val dmpc: DenseMatrix[Double] = DenseMatrix.create(pc.numRows, pc.numCols, pc.toArray)
 
     // project the rows to the linear space spanned by the top reduceTo principal components.
     val projected = dmmat * dmpc
-    //val projectedRDD = projected
-    //  .map(vec => (vec.toArray))
 
+    val projectedArr = (for (i <- 0 until projected.rows) yield (i, projected(i, ::).inner.toArray)).toArray
 
-    sc.parallelize(projected(*, ::).map(_.toArray).toArray)
+    sc.parallelize(projectedArr)
+      .sortByKey()
   }
 
 
 
-  def tSNE(X: RDD[Array[Double]], // dims already reduced using mlPCA
+  def tSNE(X: RDD[(Int, Array[Double])], // dims already reduced using mlPCA
                  k: Int = 2, // number target dims after t-SNE has been applied to the data
                  max_iter: Int = 100,
                  initial_momentum: Double = 0.5,
@@ -302,7 +307,6 @@ object ScalaImplementation {
       .partitionBy(new HashPartitioner(partitions = partitions))
 
     // testing with non-random Y
-
     /*
     val Y = Array(Array(0.1, -0.2), Array(1.2, 0.8), Array(-0.2, 0.6), Array(-0.9, 0.1), Array(1.3, 0.5))
     var YRDD = sc.parallelize(Y).zipWithIndex().flatMap {
@@ -310,7 +314,7 @@ object ScalaImplementation {
         case (value, innerIndex) => ((outerIndex.toInt, innerIndex), value)
       }
     }
-     */
+    */
 
     var YRDD = sc.parallelize(0 until sampleSize * k)
       .map { i =>
@@ -319,19 +323,17 @@ object ScalaImplementation {
         ((row, col), randn())
       }.partitionBy(new HashPartitioner(partitions = partitions))
 
-
     var gains = DenseMatrix.ones[Double](sampleSize, k)
 
-    println("First 10 rows of YRDD after initialization: ")
-    YRDD.take(10).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+    println("First n rows of YRDD after initialization: ")
+    YRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
-
-    val PRDD = computeSimilarityScoresGauss(X, n = sampleSize, partitions = partitions).partitionBy(new HashPartitioner(partitions = partitions))
+    val PRDD = computeSimilarityScoresGauss(X.map(_._2), n = sampleSize, partitions = partitions).partitionBy(new HashPartitioner(partitions = partitions))
     PRDD.map { case ((i, j), p) => ((i, j), math.max(p, 1e-12))}
     println("Initialization done, YRDD has dimensions: " + YRDD.map(_._1._1).reduce(math.max).toString + " x " + YRDD.map(_._1._2).reduce(math.max).toString)
     println("Is PRDD empty? " + PRDD.isEmpty().toString +". It has dimension: " + PRDD.map(_._1._1).reduce(math.max).toString + " x " + PRDD.map(_._1._2).reduce(math.max).toString )
-    //println("This is PRDD: ___________________")
-    //PRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+    println("This is PRDD: ___________________")
+    PRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
 
 
@@ -350,6 +352,7 @@ object ScalaImplementation {
       YRDD.take(10).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
       // calculate QRDD and num
+      // distance matrix
       val zippedPoints = YRDD
         .sortByKey()
         .map { case ((i, j), d) => (i, d) }
@@ -371,7 +374,7 @@ object ScalaImplementation {
       //println(" These are the distances for Q and num in iteration " + iter.toString)
       //distances.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
-
+      // computation of num matrix and Q matrix, both RDDs
       val num = distances.map { case ((i, j), d) =>
         if (i != j) {
           ((i, j), 1.0 / (1.0 + scala.math.pow(d, 2)))
@@ -387,7 +390,6 @@ object ScalaImplementation {
         .map { case ((i, j), d) => ((i, j), d / denom) }
         .partitionBy(new HashPartitioner(partitions = partitions))
       QRDD.cache()
-
 
       QRDD.map { case ((i, j), q) => ((i, j), math.max(q, 1e-12)) }
 
@@ -487,7 +489,7 @@ object ScalaImplementation {
       println("Finishing iteration number " + iter.toString + ".")
       println("YRDD has the following dimensions after iteration number " + iter.toString + ": " + YRDD.map(_._1._1).reduce(math.max).toString + " x " + YRDD.map(_._1._2).reduce(math.max).toString)
       println("Is YRDD empty after iteration number " + iter.toString + "? " + YRDD.isEmpty().toString)
-      YRDD.take(10).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+      //YRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
       iter = iter + 1
 
@@ -508,6 +510,7 @@ object ScalaImplementation {
         val exportYRDD = YRDD.coalesce(1)
           .map{ case ((i, j), d) => (i, d)}
           .groupByKey()
+          .sortByKey()
           .map{ case (row, values) => (row, values.mkString(", ")) }
         exportYRDD.map{ case (i, str) => str }.saveAsTextFile("data/exportIter_" + iter.toString)
       }
@@ -518,29 +521,32 @@ object ScalaImplementation {
 
   // Define main function
   def main(args: Array[String]): Unit = {
-    val sampleSize: Int = 10 // SET THIS CORRECTLY
+    val sampleSize: Int = 1000 // SET THIS CORRECTLY
     val partitions: Int = 2
 
     val toRDDTime = System.nanoTime()
-    val MNISTdata = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", sampleSize))
+    //val MNISTdata = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", sampleSize))
+    //  .sortByKey()
+
+    // import numpy array of MNIST values, first 1000 rows, that have been reduced to dim 50 using PCA
+    val MNISTpca_n1000_k50 = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/MNISTpca_n1000_k50", sampleSize))
+      .sortByKey()
+
     println("To RDD time for " + sampleSize + " samples: " + (System.nanoTime - toRDDTime) / 1000000 + "ms")
 
     // testing with small dataset
-
-    //val testX = Array(Array(1.0, 2.0), Array(3.0, 4), Array(5.0, 6), Array(7.0, 8), Array(9.0, 10))
-    //val testXRDD = sc.parallelize(testX)
-
+    /*
+    val testX = Array((0, Array(1.0, 2.0, 0.8)),(1, Array(3.0, 4, 12.3)), (2, Array(5.0, 6, 2.2)), (3, Array(7.0, 8, 8.7)), (4, Array(9.0, 10, 1.0)))
+    val testXRDD = sc.parallelize(testX)
+    */
 
     // testing tSNEsimple
     val totalTime = System.nanoTime()
-    val MNISTdataPCA = mlPCA(MNISTdata, reduceTo = 2, sampleSize = sampleSize, partitions = partitions) // reduceTo = 50
-    MNISTdataPCA.foreach(row => {
-      println(row.mkString(", "))
-    })
+    //val MNISTdataPCA = mlPCA(testXRDD, reduceTo = 2, sampleSize = sampleSize, partitions = partitions) // reduceTo = 50
+    //MNISTdataPCA.sortByKey().foreach(t => println(t._1 + " " + t._2.mkString(" ")))
 
+    val YmatOptimized = tSNE(MNISTpca_n1000_k50, sampleSize = sampleSize, max_iter = 20, `export` = true)
 
-    //val YmatOptimized = tSNE(MNISTdataPCA, sampleSize = sampleSize, max_iter = 20, `export` = false)
-    //YmatOptimized.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
 
     // TESTING ____________________
