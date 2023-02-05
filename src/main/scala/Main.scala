@@ -555,7 +555,9 @@ object Main {
       // visualization
       if (export) {
         val exportYRDD = YRDD.coalesce(1)
+          .sortByKey()
           .map{ case ((i, j), d) => (i, d)}
+          .sortByKey()
           .groupByKey()
           .sortByKey()
           .map{ case (row, values) => (row, values.mkString(", ")) }
@@ -596,7 +598,7 @@ object Main {
     //val MNISTdataPCA = mlPCA(testXRDD, reduceTo = 2, sampleSize = sampleSize, partitions = partitions) // reduceTo = 50
     //MNISTdataPCA.sortByKey().foreach(t => println(t._1 + " " + t._2.mkString(" ")))
 
-    val YmatOptimized = tSNE(MNISTpca_n2500_k50, sampleSize = sampleSize, max_iter = 1, `export` = false)
+    val YmatOptimized = tSNE(MNISTpca_n2500_k50, sampleSize = sampleSize, max_iter = 1, `export` = true)
     println("_______________________________________")
     println("ENDRESULT YRDD:")
     YmatOptimized.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
