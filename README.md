@@ -76,3 +76,28 @@ For Mac follow: https://www.google.com/search?q=scala+spark+set+up+mac+m1+intell
 ## Additional TODOs
 - Docker
 - Unit tests
+
+
+## GCloud docker
+1. gcloud auth list
+2. gcloud components update
+3. gcloud config set project paralleltsne
+4. gcloud services enable containerregistry.googleapis.com
+5. docker tag parallel_t-sne:0.1.0-SNAPSHOT gcr.io/paralleltsne/parallel_t-sne:0.1.0-SNAPSHOT
+6. docker push gcr.io/paralleltsne/parallel_t-sne:0.1.0-SNAPSHOT
+7. gcloud compute ssh --zone "europe-north1-a" "tsne-shredder"  --project "paralleltsne"
+8. gcloud builds submit --tag gcr.io/paralleltsne/parallel_t-sne:0.1.0-SNAPSHOT
+9. gcloud run deploy --image gcr.io/paralleltsne/parallel_t-sne:0.1.0-SNAPSHOT
+10.
+7. gcloud container clusters create paralleltsne --num-nodes=2 --machine-type=n1-standard-2 --zone=us-central1-a
+8. gcloud container clusters get-credentials paralleltsne --zone=us-central1-a
+9. kubectl create deployment paralleltsne --image=gcr.io/paralleltsne/parallel_t-sne:0.1.0-SNAPSHOT
+10. kubectl expose deployment paralleltsne --type=LoadBalancer --port 80 --target-port 8080
+11. kubectl get service paralleltsne
+12. kubectl scale deployment paralleltsne --replicas=2
+13. kubectl delete service paralleltsne
+14. kubectl delete deployment paralleltsne
+15. gcloud container clusters delete paralleltsne --zone=us-central1-a
+16. gcloud container images delete gcr.io/paralleltsne/parallel_t-sne:0.1.0-SNAPSHOT --force-delete-tags --quiet
+17. gcloud container images list
+
