@@ -260,7 +260,7 @@ object ScalaImplementation {
         .map { case (a, b) => a - b }))
     }.sortByKey()
 
-    val arrayData = normalizedVecs.sortByKey().map(_._2.toArray).collect()
+    val arrayData = normalizedVecs.collect().sortWith((a, b) => a._1 < b._1).map(_._2.toArray)
     val dmmat = DenseMatrix(arrayData:_*)
     val mat = new RowMatrix(normalizedVecs.map(_._2))
     // Compute the top k principal components.

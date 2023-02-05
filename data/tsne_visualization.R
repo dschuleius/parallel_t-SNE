@@ -2,7 +2,8 @@ library(tidyverse)
 library(ggplot2)
 library(animation)
 
-iterations <- 10 # needs to be changed according to tsne call
+iterations <- 20 # needs to be changed according to tsne call
+sampleSize <- 1000 # needs to be changed according to tsne call
 
 for (n in 1:iterations) {
   folder_path <- paste0("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/exportIter_", n)
@@ -15,7 +16,7 @@ for (n in 1:iterations) {
 
 YmatExports <- list.files("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data", "exportYRDD", full.names = TRUE)
 results <- lapply(YmatExports, function(file) { read.csv(file, FALSE) })
-labels <- read.csv("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt", header = FALSE, nrows = 10)
+labels <- read.csv("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_labels.txt", header = FALSE, nrows = sampleSize)
 
 resultsCombined <- list()
 for (i in seq_along(results)) { 
