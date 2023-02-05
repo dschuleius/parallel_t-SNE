@@ -525,7 +525,7 @@ object Main {
     val partitions: Int = 2
 
     val toRDDTime = System.nanoTime()
-    val MNISTdata = sc.parallelize(importData("mnist2500_X.txt", sampleSize))
+    val MNISTdata = sc.parallelize(importData("mnist2500_X.txt", sampleSize)) // only filename, no path
     println("To RDD time for " + sampleSize + " samples: " + (System.nanoTime - toRDDTime) / 1000000 + "ms")
 
     // testing with small dataset
