@@ -8,6 +8,8 @@ import breeze.linalg._
 import breeze.numerics.{exp, log}
 import breeze.stats.mean
 
+import scala.collection.LazyZipOpsImplicits._
+
 import scala.util.Random
 
 object Main {

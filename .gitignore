@@ -1,3 +1,6 @@
 .idea/
 .bsp/
-#target/
+target/
+project/project/
+project/target/
+data
