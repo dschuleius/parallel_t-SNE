@@ -1,8 +1,10 @@
-library(dplyr)
+library(tidyverse)
 library(ggplot2)
 library(animation)
 
-for (n in 1:85) {
+iterations <- 10 # needs to be changed according to tsne call
+
+for (n in 1:iterations) {
   folder_path <- paste0("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/exportIter_", n)
   old_file_path <- paste0(folder_path, "/part-00000")
   if (file.exists(old_file_path)) {
@@ -61,3 +63,4 @@ makeAnimation <- function(n = length(results), steplength = 1) {
 
 # render animation
 saveGIF(makeAnimation(steplength = 1), interval = 0.05, movie.name = "tsne_viz.gif", loop = 1)
+
