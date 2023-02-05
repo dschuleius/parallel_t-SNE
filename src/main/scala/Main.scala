@@ -7,10 +7,11 @@ import org.apache.spark.rdd.RDD
 import breeze.linalg._
 import breeze.numerics.{exp, log}
 import breeze.stats.mean
+import scala.collection.LazyZipOpsImplicits._
 
 import scala.util.Random
 
-object ScalaImplementation {
+object Main {
 
   // set up Spark, changing to local host.
   val conf: SparkConf = new SparkConf()
@@ -26,8 +27,10 @@ object ScalaImplementation {
   // function that imports MNIST from .txt files.
   def importData(fileName: String, sampleSize: Int): Array[(Int, Array[Double])] = {
     // read the file and split it into lines
-    val lines = Source.fromFile(fileName).getLines.take(sampleSize).toArray
-    Source.fromFile(fileName).close()
+//    val lines = Source.fromFile(fileName).getLines.take(sampleSize).toArray
+//    Source.fromFile(fileName).close()
+
+    val lines = Source.fromResource(fileName).getLines.take(sampleSize).toArray
 
     // split each line into fields and convert the fields to doubles
     // trim removes leading and trailing blank space from each field
@@ -522,7 +525,7 @@ object ScalaImplementation {
     val partitions: Int = 2
 
     val toRDDTime = System.nanoTime()
-    val MNISTdata = sc.parallelize(importData("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/mnist2500_X.txt", sampleSize))
+    val MNISTdata = sc.parallelize(importData("mnist2500_X.txt", sampleSize))
     println("To RDD time for " + sampleSize + " samples: " + (System.nanoTime - toRDDTime) / 1000000 + "ms")
 
     // testing with small dataset
