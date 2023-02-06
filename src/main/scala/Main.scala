@@ -604,7 +604,7 @@ object Main {
     val testXRDD = sc.parallelize(testX)
     */
 
-    val MNIST_mlPCA = mlPCA(MNISTdata, reduceTo = 50, sampleSize = sampleSize)
+    val MNIST_mlPCA = mlPCA(MNISTdata, sampleSize = sampleSize)
     println("__________________________________")
     println("This is the data after applying mlPCA:")
     MNIST_mlPCA.foreach(t => println(t._1 + " " + t._2.mkString(" ")))
@@ -612,7 +612,7 @@ object Main {
     // testing tSNEsimple
     val totalTime = System.nanoTime()
 
-    val YmatOptimized = tSNE(MNIST_mlPCA, sampleSize = sampleSize, max_iter = 20, `export` = true)
+    val YmatOptimized = tSNE(MNIST_mlPCA, sampleSize = sampleSize, max_iter = 50, `export` = true)
     println("_______________________________________")
     println("ENDRESULT YRDD:")
     YmatOptimized.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
