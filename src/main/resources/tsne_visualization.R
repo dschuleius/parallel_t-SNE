@@ -52,14 +52,6 @@ showPlot <- function(pl) {
     
 }
 
-# plot to .png files
-
-#for (i in seq_along(results)) {
-#  png(paste0("/Users/juli/Desktop/tsneviz/tnse_viz_", i, ".png"), width = 1000, height = 1000)
-#  print(showPlot(i))
-#  dev.off()
-#}
-
 
 # combine plots to animation
 makeAnimation <- function(n = length(results), steplength = 1) {
@@ -71,3 +63,11 @@ makeAnimation <- function(n = length(results), steplength = 1) {
 # render animation
 saveGIF(makeAnimation(steplength = 1), interval = 0.1, movie.name = "tsne_viz.gif", loop = 1)
 
+
+# plot to .png files
+
+#for (i in seq_along(results)) {
+#  png(paste0("/Users/juli/Desktop/tsneviz/tnse_viz_", i, ".png"), width = 1000, height = 1000)
+#  print(showPlot(i))
+#  dev.off()
+#}
