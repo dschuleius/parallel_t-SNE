@@ -10,19 +10,22 @@ sparkConfig:
   sparkBindAddress: "127.0.0.1"
 
 main:
-  sampleSize: 1000
+  sampleSize: 10
   partitions: 2
   perplexity: 30
 
 tSNE:
   k: 2
-  max_iter: 100
+  max_iter: 1
   initial_momentum: 0.5
   final_momentum: 0.8
   partitions: 2
-  export: false
   lr: 500.0
   minimumgain: 0.01
+  export: true
+  print: true
+  takeSamples: 10
+
 
 mlPCA:
   reduceTo: 50

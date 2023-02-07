@@ -6,11 +6,8 @@ import org.apache.spark.rdd.RDD
 import breeze.linalg._
 import breeze.numerics.{exp, log}
 import org.yaml.snakeyaml.Yaml
-//import breeze.stats.mean
 
 //import scala.collection.LazyZipOpsImplicits._ / neceassy for lazy zip in scala 2.12
-
-import scala.util.Random
 
 object Main {
 
@@ -87,25 +84,6 @@ object Main {
     math.sqrt(squaredDistance)
   }
 
-/*
-  def pairwiseDistancesFaster(points: RDD[((Int, Int), Double)]): RDD[((Int, Int), Double)] = {
-    val zippedPoints = points.map { case ((i, j), d) => (i, d) }
-      .groupByKey()
-      .map { case (i, iterable) => (i, iterable.toArray) }
-    val distances = zippedPoints.cartesian(zippedPoints)
-      .flatMap {
-        case ((i, u), (j, v)) =>
-          if (i < j) {
-            val dist = euclideanDistance(u, v)
-            Seq(((i, j), dist), ((j, i), dist))
-          } else if (i == j) {
-            val dist = 0.0
-            Seq(((i, j), dist))
-          } else Seq.empty
-    }
-    distances
-  }
- */
 
   def computeYdiff(points: RDD[((Int, Int), Double)]): RDD[((Int, Int), Array[Double])] = {
     val zippedPoints = points
@@ -155,7 +133,7 @@ object Main {
             Seq.empty
           }
       }
-    .groupByKey()
+    .groupByKey() //substitute .topByKey(3 * perplexity)(Ordering.by(entry => -entry._2)) for kNN approximation
 
 
     val p_betas =
@@ -166,7 +144,6 @@ object Main {
           var beta = 1.0
 
           val d = DenseVector(arr.map(_._2).toArray)
-          //println(d)
           var (h, p) = entropyBeta(d, beta)
 
           // evaluate if perplexity is within tolerance
@@ -174,7 +151,7 @@ object Main {
           var numtries = 0
 
           while (Math.abs(Hdiff) > tol && numtries < 50) {
-            //println("In iteration " + numtries.toString + " , beta is " + beta.toString)
+
             // if not, increase or decrease precision
             if (Hdiff > 0) {
               betamin = beta
@@ -188,7 +165,6 @@ object Main {
             val hp = entropyBeta(d, beta)
             h = hp._1
             p = hp._2
-            //println("In iteration " + numtries.toString + " , thisP is " + p.toString)
             Hdiff = h - logU
             numtries = numtries + 1
           }
@@ -197,6 +173,7 @@ object Main {
           arr.map(_._1).zip(p.toArray).map { case (j, v) => MatrixEntry(i, j, v) }
       }
 
+    // normalize entries of P
     val Punnorm = new CoordinateMatrix(p_betas.flatMap(me => me))
       .entries.map{ case MatrixEntry(i, j, v) => ((i.toInt, j.toInt), v) }
     val PunnormZeros = Punnorm
@@ -218,29 +195,8 @@ object Main {
   }
 
 
-  /*
-  def computeSimilarityScoresT(distances: RDD[((Int, Int), Double)], sampleSize: Int, partitions: Int): (RDD[((Int, Int), Double)], RDD[((Int, Int), Double)]) = {
 
-    val num = distances.map { case ((i, j), d) =>
-      if (i != j) {
-        ((i, j), 1.0 / (1.0 + scala.math.pow(d, 2)))
-    } else {
-        ((i, j), 0.0)
-      }
-    }.repartition(numPartitions = partitions)
-
-    val numsum = num.map(_._2).reduce(_ + _)
-
-    val Q = num.map{ case ((i, j), d) => ((i, j), d / numsum)}
-
-    (Q, num)
-
-  }
-   */
-
-
-
-  // built-in PCA function
+  // PCA function that takes the original input data and applies PCA as initialization for t-SNE
   def mlPCA(data: RDD[(Int, Array[Double])], reduceTo: Int, sampleSize: Int): RDD[(Int, Array[Double])] = {
     val rows = data
       .sortByKey()
@@ -262,7 +218,7 @@ object Main {
     val dmmat = DenseMatrix(arrayData:_*)
     val mat = new RowMatrix(normalizedVecs.map(_._2))
 
-    // Compute the top k principal components.
+    // compute the top k principal components.
     val pc: Matrix = mat.computePrincipalComponents(reduceTo)
 
     val dmpc: DenseMatrix[Double] = DenseMatrix.create(pc.numRows, pc.numCols, pc.toArray)
@@ -284,13 +240,15 @@ object Main {
                  initial_momentum: Double = 0.5,
                  final_momentum: Double = 0.8,
                  partitions: Int = 2, // set to number of CPU cores available
-                 export: Boolean = false,
                  lr: Double = 500,
                  minimumgain: Double = 0.01,
-                 sampleSize: Int):
+                 sampleSize: Int,
+                 export: Boolean = false,
+                 printing: Boolean = false,
+                 takeSamples: Int):
   RDD[((Int, Int), Double)] = {
 
-    // initialize variable
+    // initialize variables
     val initVarTime = System.nanoTime()
     val momRDDunpar: RDD[((Int, Int), Double)] = sc.parallelize(0 until sampleSize * k)
       .map{ i =>
@@ -364,18 +322,23 @@ object Main {
       }.sortByKey()
       .partitionBy(new RangePartitioner(partitions = partitions, momRDD))
 
-
+    // gains matrix that stores adaptive learning rates
     var gains = DenseMatrix.ones[Double](sampleSize, k)
 
-    println("First n rows of YRDD after initialization: ")
-    YRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+    if (printing) {
+      println("First n rows of YRDD after initialization: ")
+      YRDD.take(takeSamples).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+    }
 
     val PRDD = computeP(data.map(_._2), n = sampleSize, partitions = partitions).partitionBy(new RangePartitioner(partitions = partitions, momRDD))
     PRDD.map { case ((i, j), p) => ((i, j), math.max(p, 1e-12))}
-    println("Initialization done, YRDD has dimensions: " + YRDD.map(_._1._1).reduce(math.max).toString + " x " + YRDD.map(_._1._2).reduce(math.max).toString)
-    println("Is PRDD empty? " + PRDD.isEmpty().toString +". It has dimension: " + PRDD.map(_._1._1).reduce(math.max).toString + " x " + PRDD.map(_._1._2).reduce(math.max).toString )
-    //println("This is PRDD: ___________________")
-    //PRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+
+    if (printing) {
+      println("Initialization done, YRDD has dimensions: " + YRDD.map(_._1._1).reduce(math.max).toString + " x " + YRDD.map(_._1._2).reduce(math.max).toString)
+      println("Is PRDD empty? " + PRDD.isEmpty().toString + ". It has dimension: " + PRDD.map(_._1._1).reduce(math.max).toString + " x " + PRDD.map(_._1._2).reduce(math.max).toString)
+      println("This is PRDD: ___________________")
+      PRDD.take(takeSamples).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+    }
 
 
     var iter: Int = 0
@@ -389,8 +352,11 @@ object Main {
       println("_____________________________________________")
       println("_____________________________________________")
       println("_____________________________________________")
-      println("Starting iteration number " + iter.toString + " with YRDD that looks like this:")
-      YRDD.take(10).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+      println("Starting iteration number " + iter.toString)
+      if (printing) {
+        println("YRDD looks like this at the start of iteration number " + iter.toString)
+        YRDD.take(takeSamples).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+      }
 
       // calculate QRDD and num
       // distance matrix
@@ -411,9 +377,12 @@ object Main {
               Seq.empty
             }
         }
-      //println("____________________________________")
-      //println(" These are the distances for Q and num in iteration " + iter.toString)
-      //distances.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+
+      if (printing) {
+        println("____________________________________")
+        println(" These are the distances for Q and num in iteration " + iter.toString)
+        distances.take(takeSamples).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+      }
 
       // computation of num matrix and Q matrix, both RDDs
       val num = distances.map { case ((i, j), d) =>
@@ -435,12 +404,13 @@ object Main {
 
       QRDD.map { case ((i, j), q) => ((i, j), math.max(q, 1e-12)) }
 
-      //println(" QRDD looks like this after iteration " + iter.toString + "_________")
-      //QRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
-      //println("_________________________________________________")
-      //println("num looks like this after iteration " + iter.toString + "_________")
-      //num.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
-
+      if (printing) {
+        //println(" QRDD looks like this after iteration " + iter.toString + "_________")
+        //QRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+        //println("_________________________________________________")
+        //println("num looks like this after iteration " + iter.toString + "_________")
+        //num.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+      }
 
       val PQRDD = PRDD.join(QRDD).map { case ((i, j), (p, q)) => ((i, j), p - q) }
         .partitionBy(new RangePartitioner(partitions = partitions, momRDD))
@@ -456,7 +426,7 @@ object Main {
       ydiff.cache()
       //println("Is ydiff empty? " + ydiff.isEmpty().toString + ". It has dimension: " + ydiff.map(_._1._1).reduce(math.max).toString + " x " + ydiff.map(_._1._2).reduce(math.max).toString )
       //println(" ydiff looks like this after iteration " + iter.toString)
-      //ydiff.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2.mkString("Array(", ", ", ")")}"))
+      //ydiff.take(takeSamples).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2.mkString("Array(", ", ", ")")}"))
 
 
       val dCdYRDD = PQRDD.join(num).join(ydiff).map{ case ((i, j), ((pq, num), diff)) => ((i, j), diff.map(_ * pq * num))}
@@ -471,7 +441,7 @@ object Main {
       //println("_________________________________________________")
       //println("Is dCdYRDD empty? " + dCdYRDD.isEmpty().toString + ". It has dimension: " + dCdYRDD.map(_._1._1).reduce(math.max).toString + " x " + dCdYRDD.map(_._1._2).reduce(math.max).toString)
       //println("dCdYRDD looks like this after iteration " + iter.toString)
-      //dCdYRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+      //dCdYRDD.take(takeSamples).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
 
       // Gradient Descent step with momentum
@@ -500,13 +470,17 @@ object Main {
       }
       gains = DenseMatrix(gainsArray).reshape(gains.rows, gains.cols)
 
-      //println("_________________________________________________")
-      //println("gains in iteration " + iter.toString)
-      //println(gains)
+      if (printing) {
+        println("_________________________________________________")
+        println("gains in iteration " + iter.toString)
+        println(gains)
 
-      //println("_________________________________________________")
-      //println("momRDD in iteration " + iter.toString + " BEFORE UPDATE WITH CURRENTDERIV")
-      //momRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+        println("_________________________________________________")
+        println("momRDD in iteration " + iter.toString + " BEFORE UPDATE WITH CURRENTDERIV")
+        momRDD.take(takeSamples).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+      }
+
+
 
 
       momRDD = momRDD.join(dCdYRDD).map{ case ((i, j), (oldderiv, currentderiv)) =>
@@ -514,9 +488,11 @@ object Main {
         .sortByKey()
         .partitionBy(new RangePartitioner(partitions = partitions, momRDD))
 
-      //println("_________________________________________________")
-      //println("momRDD after iteration " + iter.toString)
-      //momRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+      if (printing) {
+        println("_________________________________________________")
+        println("momRDD after iteration " + iter.toString)
+        momRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+      }
 
       // apply update
       YRDD = YRDD.join(momRDD).map { case ((i, j), (current, update)) => ((i, j), current + update) }
@@ -533,7 +509,10 @@ object Main {
       println("Finishing iteration number " + iter.toString + ".")
       println("YRDD has the following dimensions after iteration number " + iter.toString + ": " + YRDD.map(_._1._1).reduce(math.max).toString + " x " + YRDD.map(_._1._2).reduce(math.max).toString)
       println("Is YRDD empty after iteration number " + iter.toString + "? " + YRDD.isEmpty().toString)
-      //YRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+
+      if (printing) {
+        YRDD.take(takeSamples).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
+      }
 
       iter = iter + 1
 
@@ -577,10 +556,6 @@ object Main {
 
     val toRDDTime = System.nanoTime()
 
-    // import numpy array of MNIST values, first 1000 rows, that have been reduced to dim 50 using PCA
-//    val MNISTpca_n1000_k50 = sc.parallelize(importData("MNISTpca_n1000_k50", sampleSize))
-//      .sortByKey()
-
     val MNISTdata = sc.parallelize(
       importData(getConfString("dataFile"),
       getNestedConfInt("main", "sampleSize")))
@@ -588,26 +563,16 @@ object Main {
 
     println("To RDD time for " + sampleSize + " samples: " + (System.nanoTime - toRDDTime) / 1000000 + "ms")
 
-    // testing with small dataset
-    /*
-    val testX = Array((0, Array(1.0, 2.0, 0.8)),(1, Array(3.0, 4, 12.3)), (2, Array(5.0, 6, 2.2)), (3, Array(7.0, 8, 8.7)), (4, Array(9.0, 10, 1.0)))
-    val testXRDD = sc.parallelize(testX)
-    */
 
-//    val MNIST_mlPCA = mlPCA(MNISTdata, sampleSize = sampleSize)
     val MNIST_mlPCA = mlPCA(
       data = MNISTdata,
       sampleSize = getNestedConfInt("main", "sampleSize"),
       reduceTo = getNestedConfInt("mlPCA", "reduceTo"),
     )
-    println("__________________________________")
-    println("This is the data after applying mlPCA:")
-    MNIST_mlPCA.foreach(t => println(t._1 + " " + t._2.mkString(" ")))
 
     // testing tSNEsimple
     val totalTime = System.nanoTime()
 
-//    val YmatOptimized = tSNE(MNIST_mlPCA, sampleSize = sampleSize, max_iter = 2, `export` = true)
     val YmatOptimized = tSNE(
       data = MNIST_mlPCA,
       k = getNestedConfInt("tSNE", "k"),
@@ -619,116 +584,14 @@ object Main {
       lr = getNestedConfDouble("tSNE", "lr"),
       minimumgain = getNestedConfDouble("tSNE", "minimumgain"),
       sampleSize = getNestedConfInt("main", "sampleSize"),
-    )
+      printing = getNestedConfBoolean("tSNE", "print"),
+      takeSamples = getNestedConfInt("tSNE", "takeSamples"))
 
     println("_______________________________________")
     println("ENDRESULT YRDD:")
     YmatOptimized.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
     println("Total time: " + (System.nanoTime - totalTime) / 1000000 + "ms")
-
-
-
-    // TESTING ____________________
-
-
-    /*
-   var testYRDD = sc.parallelize(0 until 5 * 2)
-     .map { i =>
-       val row = i / 2
-       val col = i % 2
-       ((row, col), List(1.0, 2, 3, 4, 5, 6, 7, 8, 9, 10)(i))
-     }
-
-
-
-  val PRDDt = computeP(testXRDD, n = 5)
-  println("______________________________________________")
-  println("PRDDt looks like this: ______________________")
-  PRDDt.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
-
-  val QRDDt = computeSimilarityScoresT(pairwiseDistancesFaster(testYRDD), sampleSize = 5, partitions = 2)._1
-  println("______________________________________________")
-  println("QRDDt looks like this: ______________________")
-  QRDDt.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
-
-  val PQRDDt = PRDDt.join(QRDDt).map { case ((i, j), (p, q)) => ((i, j), p - q) }
-  println("______________________________________________")
-  println("PQRDDt looks like this: ______________________")
-  PQRDDt.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
-
-  val ydifft = computeYdiff(testYRDD, k = 2).partitionBy(new HashPartitioner(partitions = 2))
-  println("______________________________________________")
-  println("ydifft looks like this: ______________________")
-  ydifft.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2.mkString("Array(", ", ", ")")}"))
-
-  val numt = computeSimilarityScoresT(pairwiseDistancesFaster(testYRDD), sampleSize = 5, partitions = 2)._2
-
-  val dCdYRDDt = PQRDDt.join(numt).join(ydifft).map { case ((i, j), ((pq, num), diff)) => ((i, j), diff.map(_ * pq * num)) }
-    .map { case ((i, j), comp) => (i, comp) }
-    .groupByKey()
-    .mapValues(arrays => arrays.reduce((a, b) => a.zip(b).map { case (x, y) => x + y }))
-    .flatMap { case (key, values) => values.zipWithIndex.map { case (value, index) => ((key, index), value) } }
-  println("______________________________________________")
-  println("dCdYRDDt looks like this: ______________________")
-  dCdYRDDt.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
-
-  val momentumt = 0.5
-  val minimumgaint = 0.01
-  val eta = 500
-
-  var momRDDt: RDD[((Int, Int), Double)] = sc.parallelize(0 until 5 * 2)
-    .map { i =>
-      val row = i / 2
-      val col = i % 2
-      ((row, col), 0.0)
-    }.partitionBy(new HashPartitioner(partitions = 2))
-
-  val gainst = DenseMatrix.ones[Double](5, 2)
-  gainst.foreachPair {
-    case ((i, j), old_gaint) =>
-      val new_gain = math.max(minimumgaint,
-        if ((dCdYRDDt.filter { case ((key1, key2), value) =>
-          (key1, key2) == (i, j)
-        }.map(_._2).first() > 0.0) != (momRDDt.filter { case ((key1, key2), value) =>
-          (key1, key2) == (i, j)
-        }.map(_._2).first() > 0.0))
-          old_gaint + 0.2
-        else
-          old_gaint * 0.8
-      )
-      gainst.update(i, j, new_gain)
-  }
-  println("______________________________________________")
-  println("gains looks like this: ______________________")
-  println(gainst)
-
-
-
-  momRDDt = momRDDt.join(dCdYRDDt).map { case ((i, j), (oldderiv, currentderiv)) => ((i, j), momentumt * oldderiv - eta * (gainst(i, j) * currentderiv)) }
-  println("______________________________________________")
-  println("momRDDt looks like this: ______________________")
-  momRDDt.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
-
-  testYRDD = testYRDD.join(momRDDt).map { case ((i, j), (current, update)) => ((i, j), current + update) }
-  //println("YRDD looks like this BEFORE centering:")
-  //YRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
-
-
-  // subtract the mean of each column from each corresponding element in the column
-  val YRDDColSumsMap = testYRDD
-    .map { case ((row, col), value) => (col, value) }
-    .reduceByKey(_ + _)
-    .collect()
-    .toMap
-  //println("YRDDColSums (iteration: " + iter.toString + " ) looks like this: ")
-  testYRDD = testYRDD.map { case ((i, j), y) => ((i, j), y - (YRDDColSumsMap(j) / 5.0)) }
-  println("______________________________________________")
-  println("testYRDD looks like this: ______________________")
-  testYRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
-  */
-
-
 
   }
 
