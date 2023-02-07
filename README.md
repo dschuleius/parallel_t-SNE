@@ -1,5 +1,5 @@
-# distributed_t-SNE
-Distributed t-SNE implementation using Scala and Apache Spark.
+# Distributed and parallel t-SNE implementation using Scala and Apache Spark.
+R is used for visualization purposes.
 
 
 ## Notes
