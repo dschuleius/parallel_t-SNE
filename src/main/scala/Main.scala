@@ -59,23 +59,20 @@ object Main {
     .set("spark.driver.bindAddress", getNestedConfString("sparkConfig","sparkBindAddress"))
     //.set("spark.sql.shuffle.partitions", "10")
   val sc = new SparkContext(conf)
-  // Show only Error and not Info messages
-  sc.setLogLevel("ERROR")
+  sc.setLogLevel("ERROR")   // show only Error and not Info messages
 
 
   // function that imports MNIST from .txt files.
   def importData(fileName: String, sampleSize: Int): Array[(Int, Array[Double])] = {
     // read the file and split it into lines
-
     val lines = Source.fromResource(fileName).getLines.take(sampleSize).toArray
-
     // split each line into fields and convert the fields to doubles
     // trim removes leading and trailing blank space from each field
     val data = lines
       .zipWithIndex
       .map{ case (arr, i) => (i, arr.trim.split("\\s+").map(_.toDouble)) }
 
-    // return the data as an array of arrays of doubles
+    // return the data as an tuple of the index and an array of arrays of doubles
     data
 
   }
@@ -282,7 +279,7 @@ object Main {
 
 
   def tSNE(data: RDD[(Int, Array[Double])], // dims already reduced using mlPCA
-                 k: Int = 2, // number target dims after t-SNE has been applied to the data
+                 k: Int = 2, // number of target dims after t-SNE has been applied to the data
                  max_iter: Int = 100,
                  initial_momentum: Double = 0.5,
                  final_momentum: Double = 0.8,
@@ -554,6 +551,11 @@ object Main {
 
       // visualization
       if (export) {
+        val fs = org.apache.hadoop.fs.FileSystem.get(sc.hadoopConfiguration)
+        val path = new org.apache.hadoop.fs.Path("data/export/")
+        if (fs.exists(path)) {
+          fs.delete(path, true)
+        }
         val exportYRDD = YRDD.coalesce(1)
           .sortByKey()
           .map{ case ((i, j), d) => (i, d)}
@@ -561,7 +563,7 @@ object Main {
           .groupByKey()
           .sortByKey()
           .map{ case (row, values) => (row, values.mkString(", ")) }
-        exportYRDD.map{ case (i, str) => str }.saveAsTextFile("data/exportIter_" + iter.toString)
+        exportYRDD.map{ case (i, str) => str }.saveAsTextFile("data/export/exportIter_" + iter.toString)
       }
     }
     YRDD

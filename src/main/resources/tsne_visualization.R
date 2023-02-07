@@ -8,15 +8,15 @@ iterations <- 20 # needs to be changed according to tsne call
 sampleSize <- 1000 # needs to be changed according to tsne call
 
 for (n in 1:iterations) {
-  folder_path <- paste0("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/exportIter_", n)
+  folder_path <- paste0("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/export/exportIter_", n)
   old_file_path <- paste0(folder_path, "/part-00000")
   if (file.exists(old_file_path)) {
   new_file_path <- paste0(folder_path, "/exportYRDD_", n, ".txt")
   file.rename(old_file_path, new_file_path)
-  file.copy(from = new_file_path, to = "/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/")
+  file.copy(from = new_file_path, to = "/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/export/")
 }}
 
-YmatExports <- list.files("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data", "exportYRDD", full.names = TRUE)
+YmatExports <- list.files("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/data/export/", "exportYRDD", full.names = TRUE)
 YmatExports <- mixedsort(YmatExports)
 results <- lapply(YmatExports, function(file) { read.csv(file, FALSE) })
 labels <- read.csv("/Users/juli/Documents/WiSe_2223_UniBo/ScalableCloudProg/parralel_t-SNE/src/main/resources/mnist2500_labels.txt", header = FALSE, nrows = sampleSize)
