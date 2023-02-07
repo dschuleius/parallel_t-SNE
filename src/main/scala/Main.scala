@@ -1,5 +1,4 @@
 import org.apache.spark.{HashPartitioner, RangePartitioner, SparkConf, SparkContext}
-
 import scala.io.Source
 import org.apache.spark.mllib.linalg.{Matrix, Vector, Vectors}
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry, RowMatrix}
@@ -67,8 +66,6 @@ object Main {
   // function that imports MNIST from .txt files.
   def importData(fileName: String, sampleSize: Int): Array[(Int, Array[Double])] = {
     // read the file and split it into lines
-//    val lines = Source.fromFile(fileName).getLines.take(sampleSize).toArray
-//    Source.fromFile(fileName).close()
 
     val lines = Source.fromResource(fileName).getLines.take(sampleSize).toArray
 
@@ -80,7 +77,7 @@ object Main {
 
     // return the data as an array of arrays of doubles
     data
-      //DenseMatrix.create(data.length, data(0).length, data.flatMap(_.toArray))
+
   }
 
 
@@ -113,7 +110,7 @@ object Main {
   }
  */
 
-  def pairwiseDistancesFasterGrad(points: RDD[((Int, Int), Double)]): RDD[((Int, Int), Array[Double])] = {
+  def computeYdiff(points: RDD[((Int, Int), Double)]): RDD[((Int, Int), Array[Double])] = {
     val zippedPoints = points
       .sortByKey()
       .map{ case ((i, j), d) => (i, d)}
@@ -143,11 +140,10 @@ object Main {
   }
 
 
-  def computeSimilarityScoresGauss(X: RDD[Array[Double]], tol: Double = 1e-5, perplexity: Double = 30.0, n: Int, partitions: Int): RDD[((Int, Int), Double)] = {
+  def computeP(X: RDD[Array[Double]], tol: Double = 1e-5, perplexity: Double = 30.0, n: Int, partitions: Int): RDD[((Int, Int), Double)] = {
     assert(tol >= 0, "Tolerance must be non-negative")
     assert(perplexity > 0, "Perplexity must be positive")
 
-    val ntop = (5 * perplexity).toInt
     val logU = Math.log(perplexity)
     val norms = X.map{ arr => Vectors.norm(Vectors.dense(arr), 2.0) }
     val rowsWithNorm = X.zip(norms).map { case (v, norm) => VectorAndNorm(DenseVector(v), norm) }
@@ -215,13 +211,8 @@ object Main {
     val P_t = PunnormZeros.map { case ((i, j), v) => ((j, i), v) }
     val PP_t = PunnormZeros.union(P_t)
       .reduceByKey((v1, v2) => v1 + v2)
-
-
-
     val PP_tsum = PP_t.map(_._2).reduce(_ + _)
-
     val P = PP_t.map { case ((i, j), d) => ((i, j), 4 * (d / PP_tsum)) } //early exaggeration
-
     P.map { case ((i, j), value) =>
       if (i == j) ((i, j), 1e-12) else ((i, j), value)
     }
@@ -250,46 +241,6 @@ object Main {
   }
    */
 
-  def sortColumns(matrix: DenseMatrix[Double], vector: DenseVector[Double]): DenseMatrix[Double] = {
-    // sort Array in descending order
-    val sortedVector = vector.toArray.sortWith(_ > _)
-    val sortedMatrix = DenseMatrix.zeros[Double](matrix.rows, matrix.cols)
-    for (i <- 0 until matrix.cols) {
-      val colIndex = vector.findAll(_ == sortedVector(i)).head
-      sortedMatrix(::, i) := matrix(::, colIndex)
-    }
-    sortedMatrix
-  }
-
-
-  /*
-  def breezePCA(data: DenseMatrix[Double], reduceTo: Int = 50): Array[Array[Double]] = {
-
-    // Calculate column mean as vector of sum of columns multiplied by 1/#rows
-    // Element-wise division is not implemented as it seems, so use mult. by inverse.
-    // Subtract column means from respective column entries in dataMatrix
-    val meanVec = mean(data(::, *))
-    val centeredData = data(*, ::) - meanVec.t
-
-    // Compute covariance matrix (symmetric).
-    val covMatrix = breeze.linalg.cov(centeredData)
-
-    // Compute eigenvalues and eigenvectors of covariance matrix.
-    val es = eigSym(covMatrix)
-
-    val sortedEigenVectors = sortColumns(es.eigenvectors, es.eigenvalues)
-
-    // Project data onto top k eigenvectors (change-of-basis).
-    // choose top k eigenvectors
-    val topEigenVectors = sortedEigenVectors(::, 0 until reduceTo)
-    val projectedData = (topEigenVectors.t * centeredData.t).t
-
-
-    // Convert projected data back to Array[Array[Double]]
-    projectedData(*, ::).map(_.toArray).toArray
-  }
-
-   */
 
 
   // built-in PCA function
@@ -422,13 +373,12 @@ object Main {
     println("First n rows of YRDD after initialization: ")
     YRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
-    val PRDD = computeSimilarityScoresGauss(data.map(_._2), n = sampleSize, partitions = partitions).partitionBy(new RangePartitioner(partitions = partitions, momRDD))
+    val PRDD = computeP(data.map(_._2), n = sampleSize, partitions = partitions).partitionBy(new RangePartitioner(partitions = partitions, momRDD))
     PRDD.map { case ((i, j), p) => ((i, j), math.max(p, 1e-12))}
     println("Initialization done, YRDD has dimensions: " + YRDD.map(_._1._1).reduce(math.max).toString + " x " + YRDD.map(_._1._2).reduce(math.max).toString)
     println("Is PRDD empty? " + PRDD.isEmpty().toString +". It has dimension: " + PRDD.map(_._1._1).reduce(math.max).toString + " x " + PRDD.map(_._1._2).reduce(math.max).toString )
     //println("This is PRDD: ___________________")
     //PRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
-
 
 
     var iter: Int = 0
@@ -504,7 +454,7 @@ object Main {
       //PQRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
 
-      val ydiff = pairwiseDistancesFasterGrad(YRDD)
+      val ydiff = computeYdiff(YRDD)
         .partitionBy(new RangePartitioner(partitions = partitions, momRDD))
       ydiff.cache()
       //println("Is ydiff empty? " + ydiff.isEmpty().toString + ". It has dimension: " + ydiff.map(_._1._1).reduce(math.max).toString + " x " + ydiff.map(_._1._2).reduce(math.max).toString )
@@ -607,7 +557,7 @@ object Main {
         val exportYRDD = YRDD.coalesce(1)
           .sortByKey()
           .map{ case ((i, j), d) => (i, d)}
-          .sortByKey()
+          .sortByKey()  // probably not needed
           .groupByKey()
           .sortByKey()
           .map{ case (row, values) => (row, values.mkString(", ")) }
@@ -625,7 +575,6 @@ object Main {
 
     val toRDDTime = System.nanoTime()
 
-
     // import numpy array of MNIST values, first 1000 rows, that have been reduced to dim 50 using PCA
 //    val MNISTpca_n1000_k50 = sc.parallelize(importData("MNISTpca_n1000_k50", sampleSize))
 //      .sortByKey()
@@ -635,7 +584,6 @@ object Main {
       getNestedConfInt("main", "sampleSize")))
 
 
-    //val MNISTdata = sc.parallelize(importData("mnist2500_X.txt", sampleSize)) // only filename, no path
     println("To RDD time for " + sampleSize + " samples: " + (System.nanoTime - toRDDTime) / 1000000 + "ms")
 
     // testing with small dataset
@@ -675,7 +623,7 @@ object Main {
     println("ENDRESULT YRDD:")
     YmatOptimized.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
-
+    println("Total time: " + (System.nanoTime - totalTime) / 1000000 + "ms")
 
 
 
@@ -692,7 +640,7 @@ object Main {
 
 
 
-  val PRDDt = computeSimilarityScoresGauss(testXRDD, n = 5)
+  val PRDDt = computeP(testXRDD, n = 5)
   println("______________________________________________")
   println("PRDDt looks like this: ______________________")
   PRDDt.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
@@ -707,7 +655,7 @@ object Main {
   println("PQRDDt looks like this: ______________________")
   PQRDDt.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
-  val ydifft = pairwiseDistancesFasterGrad(testYRDD, k = 2).partitionBy(new HashPartitioner(partitions = 2))
+  val ydifft = computeYdiff(testYRDD, k = 2).partitionBy(new HashPartitioner(partitions = 2))
   println("______________________________________________")
   println("ydifft looks like this: ______________________")
   ydifft.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2.mkString("Array(", ", ", ")")}"))
@@ -779,7 +727,7 @@ object Main {
   */
 
 
-    println("Total time: " + (System.nanoTime - totalTime) / 1000000 + "ms")
+
   }
 
 }
