@@ -19,7 +19,8 @@ lazy val root = (project in file("."))
     libraryDependencies += "org.apache.spark" %% "spark-hive" % "3.3.1",
 //     libraryDependencies += "org.scalanlp" %% "breeze" % "2.1.0",
     libraryDependencies += "org.apache.spark" %% "spark-mllib" % "3.3.1",
-    libraryDependencies += "com.sandinh" %% "scala-collection-compat-lazyzip" % "2.13.1"
+    libraryDependencies += "org.yaml" % "snakeyaml" % "1.33"
+//    libraryDependencies += "com.sandinh" %% "scala-collection-compat-lazyzip" % "2.13.1"
   )
 
 assemblyMergeStrategy in assembly := {

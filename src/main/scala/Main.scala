@@ -6,20 +6,58 @@ import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry,
 import org.apache.spark.rdd.RDD
 import breeze.linalg._
 import breeze.numerics.{exp, log}
-import breeze.stats.mean
+import org.yaml.snakeyaml.Yaml
+//import breeze.stats.mean
 
-import scala.collection.LazyZipOpsImplicits._
+//import scala.collection.LazyZipOpsImplicits._ / neceassy for lazy zip in scala 2.12
 
 import scala.util.Random
 
 object Main {
 
+  private val yaml = new Yaml()
+  private val ios = Source.fromResource("config.yaml").mkString
+  private val obj = yaml.load(ios).asInstanceOf[java.util.Map[String, Any]]
+
+
+  private def getConfInt(valName: String): Int = {
+    val nestedValue = obj.get(valName).asInstanceOf[Int]
+    nestedValue
+  }
+
+  private def getConfString(valName: String): String = {
+    val nestedValue = obj.get(valName).asInstanceOf[String]
+    nestedValue
+  }
+
+  private def getNestedConfString(functionName: String, valName: String): String = {
+    val nestedValue = obj.get(functionName).asInstanceOf[java.util.Map[String, Any]].get(valName).asInstanceOf[String]
+    nestedValue
+  }
+
+  private def getNestedConfInt(functionName: String, valName: String): Int = {
+    val nestedValue = obj.get(functionName).asInstanceOf[java.util.Map[String, Any]].get(valName).asInstanceOf[Int]
+    nestedValue
+  }
+
+  private def getNestedConfBoolean(functionName: String, valName: String): Boolean = {
+    val nestedValue = obj.get(functionName).asInstanceOf[java.util.Map[String, Any]].get(valName).asInstanceOf[Boolean]
+    nestedValue
+  }
+
+  private def getNestedConfDouble(functionName: String, valName: String): Double = {
+    val nestedValue = obj.get(functionName).asInstanceOf[java.util.Map[String, Any]].get(valName).asInstanceOf[Double]
+    nestedValue
+  }
+
+
+
   // set up Spark, changing to local host.
   val conf: SparkConf = new SparkConf()
-    .setAppName("distributed_t-SNE")
-    .setMaster("local[*]")
-    .set("spark.driver.host", "127.0.0.1")
-    .set("spark.driver.bindAddress", "127.0.0.1")
+    .setAppName(getNestedConfString("sparkConfig", "appName"))
+    .setMaster(getNestedConfString("sparkConfig","master"))
+    .set("spark.driver.host", getNestedConfString("sparkConfig","sparkBindHost"))
+    .set("spark.driver.bindAddress", getNestedConfString("sparkConfig","sparkBindAddress"))
     //.set("spark.sql.shuffle.partitions", "10")
   val sc = new SparkContext(conf)
   // Show only Error and not Info messages
@@ -255,7 +293,7 @@ object Main {
 
 
   // built-in PCA function
-  def mlPCA(data: RDD[(Int, Array[Double])], reduceTo: Int = 50, sampleSize: Int): RDD[(Int, Array[Double])] = {
+  def mlPCA(data: RDD[(Int, Array[Double])], reduceTo: Int, sampleSize: Int): RDD[(Int, Array[Double])] = {
     val rows = data
       .sortByKey()
       .map{ case (index, arr) => (index, Vectors.dense(arr)) }
@@ -292,7 +330,7 @@ object Main {
 
 
 
-  def tSNE(X: RDD[(Int, Array[Double])], // dims already reduced using mlPCA
+  def tSNE(data: RDD[(Int, Array[Double])], // dims already reduced using mlPCA
                  k: Int = 2, // number target dims after t-SNE has been applied to the data
                  max_iter: Int = 100,
                  initial_momentum: Double = 0.5,
@@ -315,8 +353,8 @@ object Main {
       .sortByKey()
     var momRDD = momRDDunpar.partitionBy(new RangePartitioner(partitions = partitions, momRDDunpar))
 
-    X.sortByKey()
-    X.partitionBy(new RangePartitioner(partitions = partitions, momRDDunpar))
+    data.sortByKey()
+    data.partitionBy(new RangePartitioner(partitions = partitions, momRDDunpar))
 
     // testing with non-random Y
     /*
@@ -384,7 +422,7 @@ object Main {
     println("First n rows of YRDD after initialization: ")
     YRDD.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
 
-    val PRDD = computeSimilarityScoresGauss(X.map(_._2), n = sampleSize, partitions = partitions).partitionBy(new RangePartitioner(partitions = partitions, momRDD))
+    val PRDD = computeSimilarityScoresGauss(data.map(_._2), n = sampleSize, partitions = partitions).partitionBy(new RangePartitioner(partitions = partitions, momRDD))
     PRDD.map { case ((i, j), p) => ((i, j), math.max(p, 1e-12))}
     println("Initialization done, YRDD has dimensions: " + YRDD.map(_._1._1).reduce(math.max).toString + " x " + YRDD.map(_._1._2).reduce(math.max).toString)
     println("Is PRDD empty? " + PRDD.isEmpty().toString +". It has dimension: " + PRDD.map(_._1._1).reduce(math.max).toString + " x " + PRDD.map(_._1._2).reduce(math.max).toString )
@@ -582,17 +620,19 @@ object Main {
 
   // Define main function
   def main(args: Array[String]): Unit = {
-    val sampleSize: Int = 1000 // SET THIS CORRECTLY
-    val partitions: Int = 2
+    val sampleSize: Int = getNestedConfInt("main", "sampleSize") // SET THIS CORRECTLY
+    val partitions: Int = getNestedConfInt("main", "partitions")
 
     val toRDDTime = System.nanoTime()
 
 
     // import numpy array of MNIST values, first 1000 rows, that have been reduced to dim 50 using PCA
-    val MNISTpca_n1000_k50 = sc.parallelize(importData("MNISTpca_n1000_k50", sampleSize))
-      .sortByKey()
+//    val MNISTpca_n1000_k50 = sc.parallelize(importData("MNISTpca_n1000_k50", sampleSize))
+//      .sortByKey()
 
-    val MNISTdata = sc.parallelize(importData("mnist2500_X.txt", sampleSize))
+    val MNISTdata = sc.parallelize(
+      importData(getConfString("dataFile"),
+      getNestedConfInt("main", "sampleSize")))
 
 
     //val MNISTdata = sc.parallelize(importData("mnist2500_X.txt", sampleSize)) // only filename, no path
@@ -604,7 +644,12 @@ object Main {
     val testXRDD = sc.parallelize(testX)
     */
 
-    val MNIST_mlPCA = mlPCA(MNISTdata, sampleSize = sampleSize)
+//    val MNIST_mlPCA = mlPCA(MNISTdata, sampleSize = sampleSize)
+    val MNIST_mlPCA = mlPCA(
+      data = MNISTdata,
+      sampleSize = getNestedConfInt("main", "sampleSize"),
+      reduceTo = getNestedConfInt("mlPCA", "reduceTo"),
+    )
     println("__________________________________")
     println("This is the data after applying mlPCA:")
     MNIST_mlPCA.foreach(t => println(t._1 + " " + t._2.mkString(" ")))
@@ -612,7 +657,20 @@ object Main {
     // testing tSNEsimple
     val totalTime = System.nanoTime()
 
-    val YmatOptimized = tSNE(MNIST_mlPCA, sampleSize = sampleSize, max_iter = 50, `export` = true)
+//    val YmatOptimized = tSNE(MNIST_mlPCA, sampleSize = sampleSize, max_iter = 2, `export` = true)
+    val YmatOptimized = tSNE(
+      data = MNIST_mlPCA,
+      k = getNestedConfInt("tSNE", "k"),
+      max_iter = getNestedConfInt("tSNE", "max_iter"),
+      initial_momentum = getNestedConfDouble("tSNE", "initial_momentum"),
+      final_momentum = getNestedConfDouble("tSNE", "final_momentum"),
+      partitions = getNestedConfInt("tSNE", "partitions"),
+      export = getNestedConfBoolean("tSNE", "export"),
+      lr = getNestedConfDouble("tSNE", "lr"),
+      minimumgain = getNestedConfDouble("tSNE", "minimumgain"),
+      sampleSize = getNestedConfInt("main", "sampleSize"),
+    )
+
     println("_______________________________________")
     println("ENDRESULT YRDD:")
     YmatOptimized.foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
