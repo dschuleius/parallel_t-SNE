@@ -53,19 +53,20 @@ object Main {
   // set up Spark, changing to local host.
   val conf: SparkConf = new SparkConf()
     .setAppName(getNestedConfString("sparkConfig", "appName"))
-    .setMaster(getNestedConfString("sparkConfig","master"))
-    .set("spark.driver.host", getNestedConfString("sparkConfig","sparkBindHost"))
-    .set("spark.driver.bindAddress", getNestedConfString("sparkConfig","sparkBindAddress"))
+    //.setMaster(getNestedConfString("sparkConfig","master"))
+    //.set("spark.driver.host", getNestedConfString("sparkConfig","sparkBindHost"))
+    //.set("spark.driver.bindAddress", getNestedConfString("sparkConfig","sparkBindAddress"))
     //.set("spark.sql.shuffle.partitions", "10")
   val sc = new SparkContext(conf)
   sc.setLogLevel("ERROR")   // show only Error and not Info messages
 
 
   // function that imports MNIST from .txt files.
-  def importData(fileName: String, sampleSize: Int): Array[(Int, Array[Double])] = {
+  def importData(filePath: String, sampleSize: Int): Array[(Int, Array[Double])] = {
     // read the file and split it into lines
 //    val lines = Source.fromFile("gs://scala-and-spark/resources/mnist2500_X.txt").getLines.take(sampleSize).toArray
-    val lines = sc.textFile("gs://scala-and-spark/resources/mnist2500_X.txt").take(sampleSize).toArray
+    //val lines = sc.textFile("/Users/juli/Downloads/mnist_train_X.txt").take(sampleSize)
+    val lines = sc.textFile(filePath).take(sampleSize)
 
     // split each line into fields and convert the fields to doubles
     // trim removes leading and trailing blank space from each field
@@ -144,11 +145,11 @@ object Main {
       }
     val distances: RDD[(Long, Iterable[(Long, Double)])] = {
       if (kNNapprox) {
-        distancesUngrouped.groupByKey() //substitute .topByKey(3 * perplexity)(Ordering.by(entry => -entry._2)) for kNN approximation
+        distancesUngrouped.groupByKey()
       } else {
         distancesUngrouped
           .topByKey((3 * perplexity).toInt)(Ordering.by(entry => -entry._2))
-          .map{ case (i, arr) => (i, arr.toIterable)}
+          .map{ case (i, arr) => (i, arr.toIterable)} // kNN approximation
       }
     }
 
@@ -574,7 +575,7 @@ object Main {
     val toRDDTime = System.nanoTime()
 
     val MNISTdata = sc.parallelize(
-      importData(getConfString("dataFile"),
+      importData(getConfString("filePath"),
       getNestedConfInt("main", "sampleSize")))
 
 

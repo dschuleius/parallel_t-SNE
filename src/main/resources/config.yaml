@@ -1,28 +1,28 @@
 scala-version: "2.12.14"
 name: "parallel_t-SNE"
 version: "SNAPSHOT-0.1.0"
-dataFile: "mnist2500_X.txt"
+filePath: "gs://scala-and-spark-2/resources/mnist2500_X.txt"
 
 sparkConfig:
   appName: "Spark-App"
-  master: "local[*]" # local[*] for local, spark://localhost:7077 for cluster
+  master: "yarn-cluster"    # local[*] for local, yarn-cluster for Dataproc
   sparkBindHost: "127.0.0.1"
   sparkBindAddress: "127.0.0.1"
 
 main:
-  sampleSize: 10
-  partitions: 2
+  sampleSize: 1000
+  partitions: 200
   perplexity: 30
 
 tSNE:
   k: 2
-  max_iter: 1
+  max_iter: 20
   initial_momentum: 0.5
   final_momentum: 0.8
   partitions: 2
   lr: 500.0
   minimumgain: 0.01
-  export: true
+  export: false
   print: true
   takeSamples: 10
   kNNapprox: false
