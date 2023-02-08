@@ -25,6 +25,7 @@ tSNE:
   export: true
   print: true
   takeSamples: 10
+  kNNapprox: false
 
 
 PCA:

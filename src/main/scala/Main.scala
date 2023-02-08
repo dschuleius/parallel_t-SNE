@@ -1,10 +1,12 @@
 import org.apache.spark.{HashPartitioner, RangePartitioner, SparkConf, SparkContext}
+
 import scala.io.Source
 import org.apache.spark.mllib.linalg.{Matrix, Vector, Vectors}
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry, RowMatrix}
 import org.apache.spark.rdd.RDD
 import breeze.linalg._
 import breeze.numerics.{exp, log}
+import org.apache.spark.mllib.rdd.MLPairRDDFunctions.fromPairRDD
 import org.yaml.snakeyaml.Yaml
 
 //import scala.collection.LazyZipOpsImplicits._ / neceassy for lazy zip in scala 2.12
@@ -115,14 +117,19 @@ object Main {
   }
 
 
-  def computeP(X: RDD[Array[Double]], tol: Double = 1e-5, perplexity: Double = 30.0, n: Int, partitions: Int): RDD[((Int, Int), Double)] = {
+  def computeP(X: RDD[Array[Double]],
+               tol: Double = 1e-5,
+               perplexity: Double = 30.0,
+               n: Int,
+               partitions: Int,
+               kNNapprox: Boolean): RDD[((Int, Int), Double)] = {
     assert(tol >= 0, "Tolerance must be non-negative")
     assert(perplexity > 0, "Perplexity must be positive")
 
     val logU = Math.log(perplexity)
     val norms = X.map{ arr => Vectors.norm(Vectors.dense(arr), 2.0) }
     val rowsWithNorm = X.zip(norms).map { case (v, norm) => VectorAndNorm(DenseVector(v), norm) }
-    val distances = rowsWithNorm.zipWithIndex()
+    val distancesUngrouped = rowsWithNorm.zipWithIndex()
       .cartesian(rowsWithNorm.zipWithIndex())
       .flatMap {
         case ((u, i), (v, j)) =>
@@ -133,8 +140,15 @@ object Main {
             Seq.empty
           }
       }
-    .groupByKey() //substitute .topByKey(3 * perplexity)(Ordering.by(entry => -entry._2)) for kNN approximation
-
+    val distances: RDD[(Long, Iterable[(Long, Double)])] = {
+      if (kNNapprox) {
+        distancesUngrouped.groupByKey() //substitute .topByKey(3 * perplexity)(Ordering.by(entry => -entry._2)) for kNN approximation
+      } else {
+        distancesUngrouped
+          .topByKey((3 * perplexity).toInt)(Ordering.by(entry => -entry._2))
+          .map{ case (i, arr) => (i, arr.toIterable)}
+      }
+    }
 
     val p_sigma =
       distances.map {
@@ -245,7 +259,8 @@ object Main {
                  sampleSize: Int,
                  export: Boolean = false,
                  printing: Boolean = false,
-                 takeSamples: Int):
+                 takeSamples: Int,
+                 kNNapprox: Boolean):
   RDD[((Int, Int), Double)] = {
 
     // initialize variables
@@ -330,7 +345,7 @@ object Main {
       YRDD.take(takeSamples).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
     }
 
-    val PRDD = computeP(data.map(_._2), n = sampleSize, partitions = partitions).partitionBy(new RangePartitioner(partitions = partitions, momRDD))
+    val PRDD = computeP(data.map(_._2), n = sampleSize, partitions = partitions, kNNapprox = kNNapprox).partitionBy(new RangePartitioner(partitions = partitions, momRDD))
     PRDD.map { case ((i, j), p) => ((i, j), math.max(p, 1e-12))}
 
     if (printing) {
@@ -585,7 +600,8 @@ object Main {
       minimumgain = getNestedConfDouble("tSNE", "minimumgain"),
       sampleSize = getNestedConfInt("main", "sampleSize"),
       printing = getNestedConfBoolean("tSNE", "print"),
-      takeSamples = getNestedConfInt("tSNE", "takeSamples"))
+      takeSamples = getNestedConfInt("tSNE", "takeSamples"),
+      kNNapprox = getNestedConfBoolean("tSNE", "kNNapprox"))
 
     println("_______________________________________")
     println("ENDRESULT YRDD:")
