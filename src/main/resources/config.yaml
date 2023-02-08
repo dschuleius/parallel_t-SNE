@@ -27,5 +27,5 @@ tSNE:
   takeSamples: 10
 
 
-mlPCA:
+PCA:
   reduceTo: 50

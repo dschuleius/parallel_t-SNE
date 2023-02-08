@@ -136,7 +136,7 @@ object Main {
     .groupByKey() //substitute .topByKey(3 * perplexity)(Ordering.by(entry => -entry._2)) for kNN approximation
 
 
-    val p_betas =
+    val p_sigma =
       distances.map {
         case (i, arr) =>
           var betamin = Double.NegativeInfinity
@@ -174,7 +174,7 @@ object Main {
       }
 
     // normalize entries of P
-    val Punnorm = new CoordinateMatrix(p_betas.flatMap(me => me))
+    val Punnorm = new CoordinateMatrix(p_sigma.flatMap(me => me))
       .entries.map{ case MatrixEntry(i, j, v) => ((i.toInt, j.toInt), v) }
     val PunnormZeros = Punnorm
       .map{ case ((i, j), value) => ((i, i), 0.0)}
@@ -197,7 +197,7 @@ object Main {
 
 
   // PCA function that takes the original input data and applies PCA as initialization for t-SNE
-  def mlPCA(data: RDD[(Int, Array[Double])], reduceTo: Int, sampleSize: Int): RDD[(Int, Array[Double])] = {
+  def PCA(data: RDD[(Int, Array[Double])], reduceTo: Int, sampleSize: Int): RDD[(Int, Array[Double])] = {
     val rows = data
       .sortByKey()
       .map{ case (index, arr) => (index, Vectors.dense(arr)) }
@@ -234,7 +234,7 @@ object Main {
 
 
 
-  def tSNE(data: RDD[(Int, Array[Double])], // dims already reduced using mlPCA
+  def tSNE(data: RDD[(Int, Array[Double])], // dims already reduced using PCA
                  k: Int = 2, // number of target dims after t-SNE has been applied to the data
                  max_iter: Int = 100,
                  initial_momentum: Double = 0.5,
@@ -564,17 +564,17 @@ object Main {
     println("To RDD time for " + sampleSize + " samples: " + (System.nanoTime - toRDDTime) / 1000000 + "ms")
 
 
-    val MNIST_mlPCA = mlPCA(
+    val MNIST_PCA = PCA(
       data = MNISTdata,
       sampleSize = getNestedConfInt("main", "sampleSize"),
-      reduceTo = getNestedConfInt("mlPCA", "reduceTo"),
+      reduceTo = getNestedConfInt("PCA", "reduceTo"),
     )
 
     // testing tSNEsimple
     val totalTime = System.nanoTime()
 
     val YmatOptimized = tSNE(
-      data = MNIST_mlPCA,
+      data = MNIST_PCA,
       k = getNestedConfInt("tSNE", "k"),
       max_iter = getNestedConfInt("tSNE", "max_iter"),
       initial_momentum = getNestedConfDouble("tSNE", "initial_momentum"),
