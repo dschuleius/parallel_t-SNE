@@ -5,7 +5,7 @@ dataFile: "mnist2500_X.txt"
 
 sparkConfig:
   appName: "Spark-App"
-  master: "local[*]"
+  master: "local[*]" # local[*] for local, spark://localhost:7077 for cluster
   sparkBindHost: "127.0.0.1"
   sparkBindAddress: "127.0.0.1"
 

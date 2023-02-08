@@ -64,7 +64,9 @@ object Main {
   // function that imports MNIST from .txt files.
   def importData(fileName: String, sampleSize: Int): Array[(Int, Array[Double])] = {
     // read the file and split it into lines
-    val lines = Source.fromResource(fileName).getLines.take(sampleSize).toArray
+//    val lines = Source.fromFile("gs://scala-and-spark/resources/mnist2500_X.txt").getLines.take(sampleSize).toArray
+    val lines = sc.textFile("gs://scala-and-spark/resources/mnist2500_X.txt").take(sampleSize).toArray
+
     // split each line into fields and convert the fields to doubles
     // trim removes leading and trailing blank space from each field
     val data = lines
