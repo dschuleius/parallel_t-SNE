@@ -1,6 +1,31 @@
 # Distributed and parallel t-SNE implementation using Scala and Apache Spark.
 R is used for visualization purposes.
 
+## Structure
+We use a central YAML file, `src/main/resources/config.yaml`, that allows setting all parameters for the t-SNE algorithm as well as the Spark configuration and the file path of the input data in one place.
+
+In the `src/main/resources` folder you will also find the the first 2500 rows of the MNIST train set, `MNIST_2500_X.txt`.
+For deployment, there is a `deploy_dataproc.sh` script that packages the project, copies it into a Bucket on Google Cloud Storage, creates a Google Dataproc cluster on the Google Cloud Platform, submits the t-SNE Spark job, returns the result, shuts down the cluster and deletes it.
+
+## Description of the parameters
+
+
+## Deployment
+
+Before running the deployment script, please make sure your system complies with the following:
+1. You have a working installation of [SBT](https://www.scala-sbt.org/).
+2. You have a working installation of [gcloud CLI](https://cloud.google.com/sdk/docs/install) that is set up and connected to your Google Cloud Platform account.
+3. Your system's Java JDK (used for SBT `package`) is compatible with the version of Apache Spark you are using. In case you have a mac, find out [here](https://stackoverflow.com/questions/21964709/how-to-set-or-change-the-default-java-jdk-version-on-macos) how to change your system's default Java JDK.
+4. You have created a Bucket for saving the packaged t-SNE Spark job, the input data and the result.
+
+There are some lines of code in the `deploy_dataproc.sh` script that need to be adapted before deployment:
+
+1. As every Bucket (Google Cloud Storage) has a unique ID, make sure to specify your Bucket.
+2. In the command for creating the cluster, you can specify your location preferences.
+
+For deployment on a Google Dataproc Cluster, run the `deploy_dataproc.sh` script.
+
+
 
 ## Notes
 - Spark only compatible with certain Java JDKs, 11 is supported and seems to work
@@ -48,8 +73,7 @@ R is used for visualization purposes.
 19. gcloud container images delete gcr.io/paralleltsne/parallel_t-sne:0.1.0-SNAPSHOT --force-delete-tags --quiet
 20. gcloud container images list
 
-## Problems encountered for final presentation
-- Same names for collections, e.g. `DenseMatrix`, both breeze and Spark MLLib
-- Functional programming with RDDs and specialized RDD operations require whole different approach.
+## Credits
+We relied heavily on the Python implementation from the t-SNE Paper by van der Maaten & Hinton (2008).
 
    
