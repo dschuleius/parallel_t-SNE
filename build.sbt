@@ -3,6 +3,12 @@
 // Define ScalaImplementation as main class
 mainClass in (Compile, run) := Some("Main")
 
+// Read from config.yaml
+import com.typesafe.config.{Config, ConfigFactory}
+//val config = ConfigFactory.load("src/main/resources/application.conf")
+//val config: Config = ConfigFactory.load()
+//val version_nm = config.getString("version")
+
 // breeze is disabled because spark-mllib also imports breeze but a different version
 // so that the program throws an error at compile time.
 lazy val root = (project in file("."))
@@ -11,7 +17,7 @@ lazy val root = (project in file("."))
 //          organization := "com.parallel_t-SNE",
           scalaVersion := "2.12.14",
 //          scalaVersion := "2.11.12",
-          version := "0.1.0-SNAPSHOT"
+          version := "test-run"
       )),
     name := "parallel_t-SNE",
     libraryDependencies += "org.apache.spark" %% "spark-core" % "3.3.1",

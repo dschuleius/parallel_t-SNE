@@ -59,7 +59,10 @@ else # else, delete the cluster
 fi
 
 # Copy Dataproc Job output to local project folder data
-gsutil cp -r "gs://$(getYamlValue gsBucket)/export/" data/
+gsutil cp -r "gs://$(getYamlValue gsBucket)/export/" "data/$(getYamlValue version)"
+
+# Copy config.yaml to local project folder data
+cp src/main/resources/config.yaml "data/$(getYamlValue version)"
 
 # If shellConfig.empyBucket is true, empty the bucket
 if [ "$(getYamlValue emptyGSBucket)" = "true" ]; then
