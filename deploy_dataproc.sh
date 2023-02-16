@@ -16,8 +16,8 @@ gcloud config set core/project \
 # Copy the jar to the server
 #gsutil cp target/scala-2.12/parallel_t-SNE-assembly-0.1.0-SNAPSHOT.jar gs://scala-and-spark/parallel_t-SNE-assembly-0.1.0-SNAPSHOT.jar
 gsutil cp \
- target/scala-2.12/parallel_t-sne_2.12-0.1.0-SNAPSHOT.jar \
- gs://"$(getYamlValue gsBucket)"/parallel_t-sne_2.12-0.1.0-SNAPSHOT.jar
+ target/scala-2.12/parallel_t-sne_2.12-"$(yq ".version" src/main/resources/config.yaml)".jar \
+ gs://"$(getYamlValue gsBucket)"/parallel_t-sne_2.12-"$(yq ".version" src/main/resources/config.yaml)".jar
 
 # if shellConfig.createCluster is true, create a new cluster
 if [ "$(getYamlValue createCluster)" = "true" ]; then
