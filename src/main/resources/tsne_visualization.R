@@ -70,30 +70,34 @@ for (i in seq_along(results)) {
   names(resultsCombined[[i]]) <- c("label", "x", "y")
 }
 
-# # GIF creation
-#
-# # determine axis limits
-# xmax <- c()
-# ymax <- c()
-#
-# for (i in seq_along(results)) {
-#   xmax[i] <- max(abs(resultsCombined[[i]]$x), ifelse(max(xmax) == -Inf, 0, max(xmax)))
-#   ymax[i] <- max(abs(resultsCombined[[i]]$y), ifelse(max(ymax) == -Inf, 0, max(ymax)))
-# }
-#
-#
-# # plot the points in the xy plane, color according to class
-# showPlot <- function(pl) {
-#   ggplot(data = resultsCombined[[pl]], aes(x, y, color = as.factor(label))) +
-#     geom_point() +
-#     scale_color_discrete(name = "Class") +
-#     xlim(-xmax[pl], xmax[pl]) +
-#     ylim(-ymax[pl], ymax[pl]) +
-#     labs(title = "t-SNE performed on first 1000 rows of MNIST")
-#
-# }
-#
-#
+# GIF creation
+
+# determine axis limits
+xmax <- c()
+ymax <- c()
+
+for (i in seq_along(results)) {
+  xmax[i] <- max(abs(resultsCombined[[i]]$x), ifelse(max(xmax) == -Inf, 0, max(xmax)))
+  ymax[i] <- max(abs(resultsCombined[[i]]$y), ifelse(max(ymax) == -Inf, 0, max(ymax)))
+}
+
+
+# plot the points in the xy plane, color according to class
+showPlot <- function(pl) {
+  ggplot(data = resultsCombined[[pl]], aes(x, y, color = as.factor(label))) +
+    geom_point() +
+    scale_color_discrete(name = "Class") +
+    xlim(-xmax[pl], xmax[pl]) +
+    ylim(-ymax[pl], ymax[pl]) +
+    labs(title = "t-SNE performed on first 1000 rows of MNIST")
+
+}
+
+
+# Ab hier funktioniert es noch nicht
+
+# TODO: Write functions to store GIF
+
 # # combine plots to animation
 # makeAnimation <- function(n = length(results), steplength = 1) {
 #   lapply(seq(1, n, steplength), function(i) {

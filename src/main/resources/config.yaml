@@ -16,7 +16,7 @@ shellConfig:
   imageVersion: "2.1.2-ubuntu20"
 
 rConfig:
-  gsAuthFile: "data/paralleltsne-e66b762160b7.json"
+  gsAuthFile: "data/paralleltsne-e66b762160b7.json" # Path to Google Cloud auth file
 
 
 sparkConfig:

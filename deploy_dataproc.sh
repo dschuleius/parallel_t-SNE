@@ -77,7 +77,7 @@ fi
 
 # Run R file to visualize t-SNE
 # make sure to set iterations and sampleSize correctly in the R file before running it!
-# Rscript src/main/resources/tsne_visualization.R
+Rscript src/main/resources/tsne_visualization.R
 
 # To obtain the GIF animation, open the tsne_visualization.R file in RStudio and run the saveGIF(...) command again
 
