@@ -43,7 +43,7 @@ gcloud dataproc jobs submit spark \
   --cluster="$(getYamlValue clusterName)" \
   --region=us-central1 \
   --class=Main \
-  --jars=gs://scala-and-spark/parallel_t-sne_2.12-0.1.0-SNAPSHOT.jar
+  --jars=gs://scala-and-spark/parallel_t-sne_2.12-"$(yq ".version" src/main/resources/config.yaml)".jar
   #  --jars=gs://scala-and-spark/parallel_t-SNE-assembly-0.1.0-SNAPSHOT.jar \
 
 # If shellConfig.deleteCluster is false, stop the cluster
