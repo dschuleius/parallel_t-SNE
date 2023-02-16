@@ -140,7 +140,6 @@ object Main extends Serializable {
                tol: Double = 1e-5,
                perplexity: Double = 30.0,
                n: Int,
-               partitions: Int,
                kNNapprox: Boolean): RDD[((Int, Int), Double)] = {
     assert(tol >= 0, "Tolerance must be non-negative")
     assert(perplexity > 0, "Perplexity must be positive")
@@ -269,7 +268,6 @@ object Main extends Serializable {
              max_iter: Int = 100,
              initial_momentum: Double = 0.5,
              final_momentum: Double = 0.8,
-             partitions: Int = 2, // set to number of CPU cores available
              lr: Double = 500,
              minimumgain: Double = 0.01,
              sampleSize: Int,
@@ -363,7 +361,7 @@ object Main extends Serializable {
       }
 
 
-      val PRDD = computeP(data.map(_._2), n = sampleSize, partitions = partitions, kNNapprox = kNNapprox).partitionBy(rp)
+      val PRDD = computeP(data.map(_._2), n = sampleSize, kNNapprox = kNNapprox).partitionBy(rp)
       PRDD.map { case ((i, j), p) => ((i, j), math.max(p, 1e-12)) }
 
     if (printing) {
@@ -632,7 +630,7 @@ object Main extends Serializable {
             .groupByKey()
             .sortByKey()
             .map { case (row, values) => (row, values.mkString(", ")) }
-          exportYRDD.map { case (i, str) => str }.saveAsTextFile("gs://scala-and-spark-2/export/exportIter_" + iter.toString)
+          exportYRDD.map { case (i, str) => str }.saveAsTextFile("gs://" + getNestedConfString("shellConfig", "gsBucket") + "/export/exportIter_" + iter.toString)
         }
       }
       YRDD
@@ -640,12 +638,11 @@ object Main extends Serializable {
 
 
     val sampleSize: Int = getNestedConfInt("main", "sampleSize") // SET THIS CORRECTLY
-    val partitions: Int = getNestedConfInt("main", "partitions")
 
     val toRDDTime = System.nanoTime()
 
     val MNISTdata = sc.parallelize(
-      importData(getConfString("dataFile"),
+      importData("gs://" + getNestedConfString("shellConfig", "gsBucket") + getConfString("dataFileInGs"),
       getNestedConfInt("main", "sampleSize")))
 
     println("To RDD time for " + sampleSize + " samples: " + (System.nanoTime - toRDDTime) / 1000000 + "ms")
@@ -666,7 +663,6 @@ object Main extends Serializable {
       max_iter = getNestedConfInt("tSNE", "max_iter"),
       initial_momentum = getNestedConfDouble("tSNE", "initial_momentum"),
       final_momentum = getNestedConfDouble("tSNE", "final_momentum"),
-      partitions = getNestedConfInt("tSNE", "partitions"),
       export = getNestedConfBoolean("tSNE", "export"),
       lr = getNestedConfDouble("tSNE", "lr"),
       minimumgain = getNestedConfDouble("tSNE", "minimumgain"),
