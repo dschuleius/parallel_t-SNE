@@ -1,8 +1,5 @@
 #!/bin/zsh
 
-# change default Java version to 11
-# export JAVA_HOME=`/usr/libexec/java_home -v 11.0`
-
 
 # Use yq to get values from config.yaml
 getYamlValue() {
@@ -27,7 +24,7 @@ if [ "$(getYamlValue createCluster)" = "true" ]; then
   # Create the cluster
   gcloud dataproc clusters create "$(getYamlValue clusterName)" \
     --region=us-central1 \
-    --zone=us-central1-f \
+    --zone= \
     --master-machine-type="$(getYamlValue masterMachineType)" \
     --master-boot-disk-size=100 \
     --num-workers=2 \
@@ -58,16 +55,16 @@ else # else, delete the cluster
   # Delete cluster
   gcloud dataproc clusters delete "$(getYamlValue clusterName)" \
     --region=us-central1
+
 fi
 
-
 # Copy Dataproc Job output to local project folder data
-gsutil cp -r gs://scala-and-spark/export/* data/
+gsutil cp -r "gs://$(getYamlValue gsBucket)/export/" data/
 
 # If shellConfig.empyBucket is true, empty the bucket
-if [ "$(getYamlValue emptyBucket)" = "true" ]; then
+if [ "$(getYamlValue emptyGSBucket)" = "true" ]; then
   # Empty gs bucket
-  gsutil rm -r gs://scala-and-spark/export/*
+  gsutil rm -r "gs://$(getYamlValue gsBucket)/export/"
 fi
 
 # Run R file to visualize t-SNE

@@ -7,7 +7,7 @@ shellConfig:
   gcProjectName: "paralleltsne"
   gsBucket: "scala-and-spark"
   createCluster: true
-  deleteCluster: true
+  deleteCluster: false
   emptyGSBucket: true
   clusterName: "t-sne"
   masterMachineType: "n1-standard-4"
