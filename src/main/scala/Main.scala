@@ -1,4 +1,4 @@
-import org.apache.spark.{HashPartitioner, RangePartitioner, SparkConf, SparkContext}
+import org.apache.spark.{RangePartitioner, SparkConf, SparkContext}
 
 import scala.io.Source
 import org.apache.spark.mllib.linalg.{Matrix, Vector, Vectors}
@@ -77,7 +77,7 @@ object Main extends Serializable {
         .sortByKey()
 
     // create RangePartitioner
-    val rp = new HashPartitioner(partitions = getNestedConfInt("main", "partitions"))
+    val rp = new RangePartitioner(partitions = getNestedConfInt("main", "partitions"), sampleRDD)
 
 
     // function that imports MNIST from .txt files.
@@ -135,7 +135,7 @@ object Main extends Serializable {
     }
   }
 
-
+  // function that computes the entries of the P matrix, p_{ij}, finding appropriate sigma_{i}
   def computeP(X: RDD[Array[Double]],
                tol: Double = 1e-5,
                perplexity: Double = 30.0,
@@ -268,13 +268,13 @@ object Main extends Serializable {
              max_iter: Int = 100,
              initial_momentum: Double = 0.5,
              final_momentum: Double = 0.8,
-             lr: Double = 500,
+             lr: Double = 500, // learning rate
              minimumgain: Double = 0.01,
-             sampleSize: Int,
-             export: Boolean = false,
-             printing: Boolean = false,
-             takeSamples: Int,
-             kNNapprox: Boolean):
+             sampleSize: Int, // number of MNIST rows, so number of points n.
+             export: Boolean = false, // when true: function exports YRDD after each GD iteration.
+             printing: Boolean = false, // when true: function prints all intermediate results
+             takeSamples: Int, // when printing = true, the first takeSamples rows of the intermediate results are printed.
+             kNNapprox: Boolean): // when true: calculate P matrix using approximation of pairwise distances.
     RDD[((Int, Int), Double)] = {
 
       // initialize variables
@@ -361,7 +361,8 @@ object Main extends Serializable {
       }
 
 
-      val PRDD = computeP(data.map(_._2), n = sampleSize, kNNapprox = kNNapprox).partitionBy(rp)
+      val PRDD = computeP(data.map(_._2), n = sampleSize, kNNapprox = kNNapprox)
+        .partitionBy(rp)
       PRDD.map { case ((i, j), p) => ((i, j), math.max(p, 1e-12)) }
 
     if (printing) {
@@ -376,7 +377,7 @@ object Main extends Serializable {
 
     while (iter < max_iter) {
 
-      // compute gradient: insert into every row of dCdy_i = 4 * \sum_j (p_{ij} - q_{ij})(y_i - y_j)(1 + ||y_i - y_j||^2)^{-1}
+      // compute gradient: dCdy_i = 4 * \sum_j (p_{ij} - q_{ij})(y_i - y_j)(1 + ||y_i - y_j||^2)^{-1}
       // see equation (5) in the original paper: https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf
       // y points are points in the low-dim space that are moved into clusters by the optimization.
 
@@ -390,7 +391,7 @@ object Main extends Serializable {
       }
 
       // calculate QRDD and num
-      // distance matrix
+      // pairwise distances
       val zippedPoints = YRDD
         .sortByKey()
         .map { case ((a, b), d) => (a, (b, d)) }
@@ -416,7 +417,7 @@ object Main extends Serializable {
         distances.take(takeSamples).foreach(entry => println(s"(${entry._1._1}, ${entry._1._2}) = ${entry._2}"))
       }
 
-      // computation of num matrix and Q matrix, both RDDs
+      // computation of num matrix and Q matrix from pairwise distances
       val num = distances.mapPartitions( part => part.map{ case ((i, j), d) =>
         if (i != j) {
           ((i, j), 1.0 / (1.0 + scala.math.pow(d, 2)))
@@ -429,7 +430,6 @@ object Main extends Serializable {
 
       val QRDD = num
         .mapPartitions(part => part.map{ case ((i, j), d) => ((i, j), d / denom) }, preservesPartitioning = true)
-        //.partitionBy(rp)
       QRDD.cache()
 
       QRDD.mapPartitions(part => part.map{ case ((i, j), q) => ((i, j), math.max(q, 1e-12)) }, preservesPartitioning = true)
@@ -444,7 +444,7 @@ object Main extends Serializable {
         println("num has the following number of partitions: " + num.getNumPartitions.toString)
       }
 
-
+      // compute PQ matrix: p_{ij} - q_{ij}
       // output already partitioned by given partitioner
       val PQRDD = PRDD.join(QRDD).mapPartitions(part => part.map{ case ((i, j), (p, q)) => ((i, j), p - q) }, preservesPartitioning = true)
       PQRDD.cache()
@@ -513,6 +513,7 @@ object Main extends Serializable {
       val dCdYBroadcast = sc.broadcast(dCdYRDD.collectAsMap())
       val momBroadcast = sc.broadcast(momRDD.collectAsMap())
 
+      // update adaptive learning rates
       gains.foreachPair {
         case ((i, j), old_gain) =>
           val dCdYVal = dCdYBroadcast.value.getOrElse((i, j), 0.0)
@@ -543,8 +544,6 @@ object Main extends Serializable {
 
        */
 
-        println("gains update done")
-
         val gainsArray = gains.toArray // Python: gains[gains < min_gain] = min_gain, set all gains that are smaller
         for (i <- gainsArray.indices) { // than min_gain to min_gain
           if (gainsArray(i) < minimumgain) {
@@ -568,7 +567,6 @@ object Main extends Serializable {
       momRDD = momRDD.join(dCdYRDD).map { case ((i, j), (oldderiv, currentderiv)) =>
           ((i, j), (momentum * oldderiv) - lr * (gainsBroadcast.value(i, j) * currentderiv))
         }
-          //.sortByKey()   // unnecessary
           .partitionBy(rp)
 
 

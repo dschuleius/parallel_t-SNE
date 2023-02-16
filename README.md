@@ -2,13 +2,57 @@
 R is used for visualization purposes.
 
 ## Structure
-We use a central YAML file, `src/main/resources/config.yaml`, that allows setting all parameters for the t-SNE algorithm as well as the Spark configuration and the file path of the input data in one place.
+We use a central YAML file, `src/main/resources/config.yaml`, that allows setting all parameters for the t-SNE algorithm as well as the Spark configuration and the deployment on GCP.
 
-In the `src/main/resources` folder you will also find the the first 2500 rows of the MNIST train set, `MNIST_2500_X.txt`.
 For deployment, there is a `deploy_dataproc.sh` script that packages the project, copies it into a Bucket on Google Cloud Storage, creates a Google Dataproc cluster on the Google Cloud Platform, submits the t-SNE Spark job, returns the result, shuts down the cluster and deletes it.
+You can deploy different versions with different names where the output of the GCP Spark job will be saved into different subdirectories of the local data folder.
 
-## Description of the parameters
+## Description of the parameters in `config.yaml`
+- `scala-version`: indicate Scala version you are using as string.
+- `name`: indicate the desired name of your Spark application as string.
+- `version`: indicate a desired name for the version of your Spark application as string, e.g., "test-run".
+- `dataFileInGs`: indicate the location of your datafiles (.txt) in your GCP bucket, e.g., "/resources/mnist2500_X.txt".
 
+### ShellConfig
+- `gcProjectName`: indicate the unique name of your project on GCP as string.
+- `gsBucket`: indicate the unique name of your bucket on GCP as string.
+- `clusterName`: indicate your desired name for the cluster as string.
+- `createCluster`: specify whether a new cluster should be created as boolean.
+- `deleteCluster`: specify whether the cluster should be deleted after the spark job submission as boolean.
+- `emptyGSBucket`: specify whether the GCP bucket should be emptied after the spark job submission as boolean.
+- `masterMachineType`: indicate the desired GCP Dataproc master machine type, e.g., "n1-standard-4".
+- `workerMachineType`: indicate the desired GCP Dataproc worker machine type, e.g., "n1-standard-4".
+- `imageVersion`: indicate your desired imageVersion for the Dataproc cluster, e.g., "2.1.2-ubuntu20"
+
+### sparkConfig
+- `local`: indicate whether Apache Spark should run in local mode as boolean, e.g., false.
+- `appName`: specify the Apache Spark name of the application as string.
+- `master`: specify the master of the `sparkConf()`, e.g., "local[*]".
+- `shufflePartitions`: speficy the desired `spark.sql.shuffle.partitions` value as string.
+- `defaultParallelism`: speficy the desired `spark.default.parallelism` value as string.
+- `sparkBindHost`: for Spark local mode, e.g., "127.0.0.1" (localhost).
+- `sparkBindAddress`: for Spark local mode, e.g., "127.0.0.1" (localhost).
+
+### main
+- `sampleSize`: the sample size as integer.
+- `partitions`: the desired number of partitions for the `RangePartitioner` as integer.
+- `perplexity`: the desired perplexity as integer. Common values range from 5 to 50.
+
+### tSNE
+- `k`: indicate the desired dimension of the embedding produced by t-SNE. Normally 2.
+- `max_iter`: specify the desired number of iterations for the GD optimization as integer.
+- `initial_momentum`: initial momentum, normally set to 0.5.
+- `final_momentum`: final momentum, normally set to 0.8.
+- `lr`: specify the desired learning rate for the GD optimization. Normally 500.0.
+- `minimumgain`: indicate the desired minimum gain for the adaptive learning rates in the GD optimization. Normally 0.01.
+- `export`: boolean. If set to true, the low-dimensional embedding of the input points will be saved in a text file after every iteration.
+- `print`: boolean. If set to true, the tSNE function will print intermediate results.
+- `takeSamples`: int. If print = true, the first `takeSamples` rows of every intermediate result will be printed to the console.
+- `kNNapprox`: boolean. It true, applies a kNN approximation of the distances for computing the high-dimensional similarity scores (P). Results in faster execution.
+
+
+### PCA
+- `reduceTo`: specify the number of dimensions that the t-SNE function starts with as input dimensions. Usually set to 50.
 
 ## Deployment
 
@@ -18,60 +62,17 @@ Before running the deployment script, please make sure your system complies with
 3. Your system's Java JDK (used for SBT `package`) is compatible with the version of Apache Spark you are using. In case you have a mac, find out [here](https://stackoverflow.com/questions/21964709/how-to-set-or-change-the-default-java-jdk-version-on-macos) how to change your system's default Java JDK.
 4. You have created a Bucket for saving the packaged t-SNE Spark job, the input data and the result.
 
-There are some lines of code in the `deploy_dataproc.sh` script that need to be adapted before deployment:
-
-1. As every Bucket (Google Cloud Storage) has a unique ID, make sure to specify your Bucket.
-2. In the command for creating the cluster, you can specify your location preferences.
+Adjust all parameters in the `config.yaml` file to your liking.
 
 For deployment on a Google Dataproc Cluster, run the `deploy_dataproc.sh` script.
 
+For visualization, you can either use the provided R script `tsne_visualization.R` in the `src/main/resources` folder manually (e.g., using RStudio) or you can run the R script in the terminal, which produces visualizations of every optimization step.
+Make sure to adjust the pathnames in the R file according to your system before running it.
 
-
-## Notes
-- Spark only compatible with certain Java JDKs, 11 is supported and seems to work
-- SBT: libraryDependencies need to go into the root.settings() codeblock
-- SBT: do NOT use "provided" label, IntelliJ won't run the program otherwise
-- Retrieve SBT libraryDependencies from https://mvnrepository.com/artifact/org.apache.spark/spark-core
-
-
-## Resources
-- https://docs.scala-lang.org/scala3/book/introduction.html
-- https://www.oreilly.com/content/an-illustrated-introduction-to-the-t-sne-algorithm/
-- https://www.youtube.com/watch?v=-8V6bMjThNo&list=PLmtsMNDRU0BxryRX4wiwrTZ661xcp6VPM
-- https://www.youtube.com/watch?v=-NleKOVsl28
-- https://sparkour.urizone.net/recipes/building-sbt/
+## Additional resources on t-SNE
 - https://www.youtube.com/watch?v=NEaUSP4YerM Stats Quest: basic explanation of t-SNE
-- https://github.com/scalanlp/breeze/wiki/Linear-Algebra-Cheat-Sheet#operations Breeze LinAlg CheatSheet
-- https://databricks-prod-cloudfront.cloud.databricks.com/public/4027ec902e239c93eaaa8714f173bcfc/8623654525287098/4373605817327958/8746817301327119/latest.html PCA in Spark using MLLib
+- https://www.youtube.com/watch?v=MnRskV3NY1k
 
-
-
-## Additional TODOs
-- Docker
-- Unit tests
-
-
-## GCloud docker
-1. gcloud auth list
-2. gcloud components update
-3. gcloud config set project paralleltsne
-4. gcloud services enable containerregistry.googleapis.com
-5. docker tag parallel_t-sne:0.1.0-SNAPSHOT gcr.io/paralleltsne/parallel_t-sne:0.1.0-SNAPSHOT
-6. docker push gcr.io/paralleltsne/parallel_t-sne:0.1.0-SNAPSHOT
-7. gcloud compute ssh --zone "europe-north1-a" "tsne-shredder"  --project "paralleltsne"
-8. gcloud builds submit --tag gcr.io/paralleltsne/parallel_t-sne:0.1.0-SNAPSHOT
-9. gcloud run deploy --image gcr.io/paralleltsne/parallel_t-sne:0.1.0-SNAPSHOT
-10. gcloud container clusters create paralleltsne --num-nodes=2 --machine-type=n1-standard-2 --zone=us-central1-a
-11. gcloud container clusters get-credentials paralleltsne --zone=us-central1-a
-12. kubectl create deployment paralleltsne --image=gcr.io/paralleltsne/parallel_t-sne:0.1.0-SNAPSHOT
-13. kubectl expose deployment paralleltsne --type=LoadBalancer --port 80 --target-port 8080
-14. kubectl get service paralleltsne
-15. kubectl scale deployment paralleltsne --replicas=2
-16. kubectl delete service paralleltsne
-17. kubectl delete deployment paralleltsne
-18. gcloud container clusters delete paralleltsne --zone=us-central1-a
-19. gcloud container images delete gcr.io/paralleltsne/parallel_t-sne:0.1.0-SNAPSHOT --force-delete-tags --quiet
-20. gcloud container images list
 
 ## Credits
 We relied heavily on the Python implementation from the t-SNE Paper by van der Maaten & Hinton (2008).
