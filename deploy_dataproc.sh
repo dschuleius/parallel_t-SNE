@@ -13,6 +13,8 @@ sbt clean package
 gcloud config set core/project \
   "$(getYamlValue .shellConfig.gcProjectName)"
 
+# Create data folder
+
 # Copy the jar to the server
 #gsutil cp target/scala-2.12/parallel_t-SNE-assembly-0.1.0-SNAPSHOT.jar gs://scala-and-spark/parallel_t-SNE-assembly-0.1.0-SNAPSHOT.jar
 gsutil cp \
@@ -46,17 +48,17 @@ gcloud dataproc jobs submit spark \
   --jars=gs://scala-and-spark/parallel_t-sne_2.12-"$(getYamlValue .version)".jar
   #  --jars=gs://scala-and-spark/parallel_t-SNE-assembly-0.1.0-SNAPSHOT.jar \
 
-# If shellConfig.deleteCluster is false, stop the cluster
-#if [ "$(getYamlValue .shellConfig.deleteCluster)" = "false" ]; then
-#  # Stop the cluster
-#  gcloud dataproc clusters stop "$(getYamlValue .shellConfig.clusterName)" \
-#    --region=us-central1
-#else # else, delete the cluster
-#  # Delete cluster
-#  gcloud dataproc clusters delete "$(getYamlValue .shellConfig.clusterName)" \
-#    --region=us-central1
-#
-#fi
+ If shellConfig.deleteCluster is false, stop the cluster
+if [ "$(getYamlValue .shellConfig.deleteCluster)" = "false" ]; then
+  # Stop the cluster
+  gcloud dataproc clusters stop "$(getYamlValue .shellConfig.clusterName)" \
+    --region=us-central1
+else # else, delete the cluster
+  # Delete cluster
+  gcloud dataproc clusters delete "$(getYamlValue .shellConfig.clusterName)" \
+    --region=us-central1
+
+fi
 
 # Create dir for data
 mkdir "data/$(getYamlValue .version)"
@@ -81,3 +83,4 @@ fi
 
 # In R file specify output location for exported .png!
 
+# Clean up downloaded files
