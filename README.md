@@ -66,8 +66,7 @@ Adjust all parameters in the `config.yaml` file to your liking.
 
 For deployment on a Google Dataproc Cluster, run the `deploy_dataproc.sh` script.
 
-For visualization, you can either use the provided R script `tsne_visualization.R` in the `src/main/resources` folder manually (e.g., using RStudio) or you can run the R script in the terminal, which produces visualizations of every optimization step.
-Make sure to adjust the pathnames in the R file according to your system before running it.
+For visualization, the `deploy_dataproc.sh` script automatically runs the `tsne_visualization.R` script, taking into account all parameters you have indicated on the `config.yaml` file. The visualizations produced will be one PDF that contains the visualizations of all optimization steps that are saved to the root directory of your project. Alternatively, you can use the provided R script `tsne_visualization.R` in the `src/main/resources` folder manually (e.g., using RStudio).
 
 ## Additional resources on t-SNE
 - https://www.youtube.com/watch?v=NEaUSP4YerM Stats Quest: basic explanation of t-SNE
@@ -75,6 +74,6 @@ Make sure to adjust the pathnames in the R file according to your system before 
 
 
 ## Credits
-We relied heavily on the Python implementation from the [t-SNE Paper by van der Maaten & Hinton (2008)](https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf).
+We relied on the Python implementation from the [t-SNE Paper by van der Maaten & Hinton (2008)](https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf).
 
    
