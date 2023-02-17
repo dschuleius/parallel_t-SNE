@@ -21,11 +21,6 @@ object Main extends Serializable {
     val obj = yaml.load(ios).asInstanceOf[java.util.Map[String, Any]]
 
 
-    def getConfInt(valName: String): Int = {
-      val nestedValue = obj.get(valName).asInstanceOf[Int]
-      nestedValue
-    }
-
     def getConfString(valName: String): String = {
       val nestedValue = obj.get(valName).asInstanceOf[String]
       nestedValue
@@ -66,7 +61,6 @@ object Main extends Serializable {
     val sc = new SparkContext(conf)
     sc.setLogLevel("ERROR") // show only Error and not Info messages
 
-
     // create sampleRDD for RangePartitioner creation
     val sampleRDD: RDD[((Int, Int), Double)] = sc.parallelize(0 until getNestedConfInt("main", "sampleSize") * getNestedConfInt("tSNE", "k"))
         .map { i =>
@@ -78,7 +72,6 @@ object Main extends Serializable {
 
     // create RangePartitioner
     val rp = new RangePartitioner(partitions = getNestedConfInt("main", "partitions"), sampleRDD)
-
 
     // function that imports MNIST from .txt files.
     def importData(fileName: String, sampleSize: Int): Array[(Int, Array[Double])] = {
@@ -93,9 +86,7 @@ object Main extends Serializable {
 
     // return the data as an tuple of the index and an array of arrays of doubles
     data
-
   }
-
 
     def euclideanDistance(point1: Array[Double], point2: Array[Double]): Double = {
       // Calculate the squared Euclidean distance between the two points
@@ -104,7 +95,6 @@ object Main extends Serializable {
     // Return the Euclidean distance
     math.sqrt(squaredDistance)
   }
-
 
     def computeYdiff(points: RDD[((Int, Int), Double)]): RDD[((Int, Int), Array[Double])] = {
       val zippedPoints = points
@@ -120,7 +110,6 @@ object Main extends Serializable {
         }
       differences
     }
-
 
   case class VectorAndNorm(vector: DenseVector[Double], norm: Double)
 
@@ -275,6 +264,7 @@ object Main extends Serializable {
              printing: Boolean = false, // when true: function prints all intermediate results
              takeSamples: Int, // when printing = true, the first takeSamples rows of the intermediate results are printed.
              kNNapprox: Boolean): // when true: calculate P matrix using approximation of pairwise distances.
+
     RDD[((Int, Int), Double)] = {
 
       // initialize variables
@@ -290,58 +280,6 @@ object Main extends Serializable {
 
       data.sortByKey().partitionBy(rp)
 
-      // testing with non-random Y for Python comparisons
-
-      /*
-    val Y = Array(
-      Array(-1.12870294, -0.83008814),
-      Array(0.07448544, -1.30711223),
-      Array(1.02539386, -0.32798679),
-      Array(0.60880325, -0.59266964),
-      Array(0.34561165, -0.83674335),
-      Array(-0.90895435, -0.02894896),
-      Array(-0.73702659, 1.22795944),
-      Array(0.30497069, -0.33730157),
-      Array(0.01755616, -0.58677067),
-      Array(0.73303266, -0.70495823),
-      Array(-0.57352783, 0.95559499),
-      Array(-0.95133737, 0.41451273),
-      Array(0.35576788, -0.59659931),
-      Array(-0.88165797, 0.70285842),
-      Array(1.46847176, -0.31269423),
-      Array(-0.02516202, 0.84827782),
-      Array(1.54981666, 0.14326029),
-      Array(0.6373717, 0.45151671),
-      Array(-0.12505717, 1.02270182),
-      Array(-0.01494444, 0.78451147),
-      Array(-0.90826369, 0.87060796),
-      Array(-0.26584847, -0.16205853),
-      Array(-0.6810938, 0.54225839),
-      Array(-1.00846689, 0.04482262),
-      Array(-0.09231624, 1.6466729),
-      Array(0.31236914, -0.33153579),
-      Array(0.59300798, 0.76617706),
-      Array(-0.55785569, -0.41471199),
-      Array(-0.46165087, -0.80576489),
-      Array(1.05787231, 0.31475158),
-      Array(-0.46556687, 1.48494896),
-      Array(-1.63585795, 0.64046439),
-      Array(0.73408097, -0.59385824),
-      Array(1.26926492, 0.85999462),
-      Array(0.05963874, -0.82447235),
-      Array(0.08331667, 1.19259051),
-      Array(0.89707891, -0.47827121),
-      Array(0.38673393, -0.63408034),
-      Array(0.12074724, 1.77694826),
-      Array(-0.30570598, 0.53870262))
-
-    var YRDD = sc.parallelize(Y).zipWithIndex().flatMap {
-      case (values, outerIndex) => values.zipWithIndex.map {
-        case (value, innerIndex) => ((outerIndex.toInt, innerIndex), value)
-      }
-    }.partitionBy(rp)
-
-       */
 
     var YRDD = sc.parallelize(0 until sampleSize * k)
       .map { i =>

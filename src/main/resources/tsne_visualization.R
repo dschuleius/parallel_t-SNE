@@ -48,15 +48,18 @@ iterations <- config$tSNE$max_iter
 sampleSize <- config$main$sampleSize
 
 for (n in 1:iterations) {
-  folder_path <- paste0("data/",config$version,"export/exportIter_", n)
+  folder_path <- paste0("data/",config$version,"/export/exportIter_", n)
   old_file_path <- paste0(folder_path, "/part-00000")
   if (file.exists(old_file_path)) {
-  new_file_path <- paste0(folder_path, "/exportYRDD_", n, ".txt")
-  file.rename(old_file_path, new_file_path)
-  file.copy(from = new_file_path, to = paste0("data/",config$version,"/"))
-}}
+  file.copy(from = old_file_path, to = paste0("data/",config$version,"/vis_data/"))
+  new_file_path <- paste0(paste0("data/",config$version,"/vis_data"), "/exportYRDD_", n, ".txt")
+  print(new_file_path)
+  file.rename(paste0("data/",config$version,"/vis_data/part-00000"), new_file_path)
 
-YmatExports <- list.files(paste0("data/",config$version, "/"), "exportYRDD", full.names = TRUE)
+  }
+}
+
+YmatExports <- list.files(paste0("data/",config$version, "/vis_data/"), "exportYRDD", full.names = TRUE)
 YmatExports <- mixedsort(YmatExports)
 results <- lapply(YmatExports, function(file) { read.csv(file, FALSE) })
 labels <- read.csv("data/labels_downloaded.txt", header = FALSE, nrows = sampleSize)
@@ -70,8 +73,6 @@ for (i in seq_along(results)) {
   names(resultsCombined[[i]]) <- c("label", "x", "y")
 }
 
-# GIF creation
-
 # determine axis limits
 xmax <- c()
 ymax <- c()
@@ -80,7 +81,6 @@ for (i in seq_along(results)) {
   xmax[i] <- max(abs(resultsCombined[[i]]$x), ifelse(max(xmax) == -Inf, 0, max(xmax)))
   ymax[i] <- max(abs(resultsCombined[[i]]$y), ifelse(max(ymax) == -Inf, 0, max(ymax)))
 }
-
 
 # plot the points in the xy plane, color according to class
 showPlot <- function(pl) {
@@ -93,27 +93,6 @@ showPlot <- function(pl) {
 
 }
 
-
-# Ab hier funktioniert es noch nicht
-
-# TODO: Write functions to store GIF
-
-# # combine plots to animation
-# makeAnimation <- function(n = length(results), steplength = 1) {
-#   lapply(seq(1, n, steplength), function(i) {
-#     showPlot(i)
-#   })
-# }
-#
-# # render animation
-# # saveGIF(makeAnimation(steplength = 1), interval = 0.1, movie.name = "tsne_viz.gif", loop = 1)
-# # print(saveGIF(makeAnimation(steplength = 1), interval = 0.1, movie.name = "tsne_viz.gif", loop = 1))
-#
-#
-# # plot to .png files
-#
-# #for (i in seq_along(results)) {
-# #  png(paste0("/Users/juli/Desktop/tsneviz/tnse_viz_", i, ".png"), width = 1000, height = 1000)
-# #  print(showPlot(i))
-# #  dev.off()
-# #}
+for (i in seq_along(results)) {
+  print(showPlot(i))
+}

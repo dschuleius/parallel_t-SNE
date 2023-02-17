@@ -1,7 +1,7 @@
 #!/bin/zsh
 
 
-# Use yq to get values from config.yaml
+## Use yq to get values from config.yaml
 getYamlValue() {
   yq "$1" src/main/resources/config.yaml
 }
@@ -12,8 +12,6 @@ sbt clean package
 # Specify core/project
 gcloud config set core/project \
   "$(getYamlValue .shellConfig.gcProjectName)"
-
-# Create data folder
 
 # Copy the jar to the server
 #gsutil cp target/scala-2.12/parallel_t-SNE-assembly-0.1.0-SNAPSHOT.jar gs://scala-and-spark/parallel_t-SNE-assembly-0.1.0-SNAPSHOT.jar
@@ -48,7 +46,7 @@ gcloud dataproc jobs submit spark \
   --jars=gs://scala-and-spark/parallel_t-sne_2.12-"$(getYamlValue .version)".jar
   #  --jars=gs://scala-and-spark/parallel_t-SNE-assembly-0.1.0-SNAPSHOT.jar \
 
- If shellConfig.deleteCluster is false, stop the cluster
+# If shellConfig.deleteCluster is false, stop the cluster
 if [ "$(getYamlValue .shellConfig.deleteCluster)" = "false" ]; then
   # Stop the cluster
   gcloud dataproc clusters stop "$(getYamlValue .shellConfig.clusterName)" \
@@ -62,6 +60,10 @@ fi
 
 # Create dir for data
 mkdir "data/$(getYamlValue .version)"
+rm -r "data/$(getYamlValue .version)/export/"
+rm -r "data/$(getYamlValue .version)/vis_data/"
+mkdir "data/$(getYamlValue .version)/export"
+mkdir "data/$(getYamlValue .version)/vis_data"
 
 # Copy Dataproc Job output to local project folder data
 gsutil cp -r "gs://$(getYamlValue .shellConfig.gsBucket)/export/" "data/$(getYamlValue .version)/"
@@ -76,11 +78,4 @@ if [ "$(getYamlValue .shellConfig.emptyGSBucket)" = "true" ]; then
 fi
 
 # Run R file to visualize t-SNE
-# make sure to set iterations and sampleSize correctly in the R file before running it!
 Rscript src/main/resources/tsne_visualization.R
-
-# To obtain the GIF animation, open the tsne_visualization.R file in RStudio and run the saveGIF(...) command again
-
-# In R file specify output location for exported .png!
-
-# Clean up downloaded files

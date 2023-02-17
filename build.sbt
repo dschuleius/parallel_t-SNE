@@ -17,7 +17,7 @@ lazy val root = (project in file("."))
 //          organization := "com.parallel_t-SNE",
           scalaVersion := "2.12.14",
 //          scalaVersion := "2.11.12",
-          version := "test-run"
+          version := "demo-run"
       )),
     name := "parallel_t-SNE",
     libraryDependencies += "org.apache.spark" %% "spark-core" % "3.3.1",
