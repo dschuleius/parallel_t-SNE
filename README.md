@@ -75,6 +75,6 @@ Make sure to adjust the pathnames in the R file according to your system before 
 
 
 ## Credits
-We relied heavily on the Python implementation from the t-SNE Paper by van der Maaten & Hinton (2008).
+We relied heavily on the Python implementation from the [t-SNE Paper by van der Maaten & Hinton (2008)](https://jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf).
 
    
